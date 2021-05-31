@@ -1,0 +1,52 @@
+//
+// (c) 2021 Eduardo Doria.
+//
+
+#include <stdio.h>
+
+#include "supershader.h"
+
+using namespace supershader;
+
+int main(int argc, const char **argv){
+
+	args_t args = parse_args(argc, argv);
+	if (!args.isValid)
+		return EXIT_FAILURE;
+
+
+	std::vector<input_t> inputs;
+	if (!load_input(inputs, args))
+		return EXIT_FAILURE;
+
+	std::vector<spirv_t> spirvvec;
+	spirvvec.resize(inputs.size());
+	if (!compile_to_spirv(spirvvec, inputs, args))
+		return EXIT_FAILURE;
+
+	if (spirvvec.size() != inputs.size()){
+		fprintf(stderr, "Error in pipeline when compile to SPIRV");
+		return EXIT_FAILURE;
+	}
+
+	std::vector<spirvcross_t> spirvcrossvec;
+	spirvcrossvec.resize(inputs.size());
+	if (!compile_to_lang(spirvcrossvec, spirvvec, inputs, args))
+		return EXIT_FAILURE;
+
+	if (spirvcrossvec.size() != inputs.size()){
+		fprintf(stderr, "Error in pipeline when compile to shader lang");
+		return EXIT_FAILURE;
+	}
+
+	if (args.json){
+		if (!generate_json(spirvcrossvec, inputs, args))
+			return EXIT_FAILURE;
+	}else{
+		if (!generate_sbs(spirvcrossvec, inputs, args))
+			return EXIT_FAILURE;
+	}
+
+
+	return 0;
+}

@@ -1,0 +1,349 @@
+//
+// (c) 2021 Eduardo Doria.
+//
+
+#include "supershader.h"
+
+#include <iostream>
+#include <fstream>
+
+#include "SPIRV/GlslangToSpv.h"
+#include "SPIRV/SpvTools.h"
+#include "SPIRV/disassemble.h"
+#include "SPIRV/spirv.hpp"
+
+using namespace supershader;
+
+class FileIncluder : public glslang::TShader::Includer {
+private:
+    std::vector<std::string> localDirectories;
+    std::set<std::string> includedFiles;
+
+    IncludeResult* newIncludeResult(const std::string& path, std::ifstream& file, int length) const {
+        char* content = new char [length];
+        file.seekg(0, file.beg);
+        file.read(content, length);
+        return new IncludeResult(path, content, length, content);
+    }
+
+    std::string getDirectory(const std::string path) const {
+        size_t last = path.find_last_of("/\\");
+        return last == std::string::npos ? "." : path.substr(0, last);
+    }
+
+public:
+    virtual IncludeResult* includeLocal(const char* headerName, 
+                                        const char* includerName, 
+                                        size_t inclusionDepth) override {
+        
+        localDirectories.resize((int)inclusionDepth + (int)localDirectories.size());
+        if (inclusionDepth == 1)
+            localDirectories.back() = getDirectory(includerName);
+
+        for (auto it = localDirectories.rbegin(); it != localDirectories.rend(); ++it) {
+            std::string path = *it + '/' + headerName;
+            std::replace(path.begin(), path.end(), '\\', '/');
+            std::ifstream file(path, std::ios_base::binary | std::ios_base::ate);
+            if (file) {
+                includedFiles.insert(path);
+                return newIncludeResult(path, file, (int)file.tellg());
+            }
+        }
+
+        return nullptr;
+    }
+
+     // Not using search for a <system> path.
+    virtual IncludeResult* includeSystem(const char* headerName,
+                                         const char* /*includerName*/,
+                                         size_t /*inclusionDepth*/) override {
+        return nullptr;
+    }
+
+    virtual void releaseInclude(IncludeResult* result) override {
+        if (result != nullptr) {
+            delete [] static_cast<char*>(result->userData);
+            delete result;
+        }
+    }
+
+    virtual ~FileIncluder() override { }
+
+    void addLocalDirectory(const std::string& dir) {
+        localDirectories.push_back(dir);
+    }
+
+    virtual std::set<std::string> getIncludedFiles() {
+        return includedFiles;
+    }
+};
+
+
+extern const TBuiltInResource DefaultTBuiltInResource;
+
+static void output_error(const char* str, const char* header){
+    if (str && str[0]){
+        fprintf(stdout, "%s\n", header);
+        fprintf(stderr, "%s\n", str);
+    }
+}
+
+static void output_included_files(const std::set<std::string>& includedFiles){
+    fprintf(stdout, "Included files:\n");
+    for(auto f : includedFiles) {
+        fprintf(stdout, "%s\n", f.c_str());
+    }
+}
+
+
+static void cleanup_program_shaders(glslang::TProgram* program, std::list<glslang::TShader*>& shaders){
+    // Program has to go before the shaders, look glslang StandAlone.cpp
+    delete program;
+    while (shaders.size() > 0) {
+        delete shaders.back();
+        shaders.pop_back();
+    }
+}
+
+static EShLanguage get_stage(stage_type_t stage_type){
+    if (stage_type == STAGE_VERTEX){
+        return EShLangVertex;
+    }else if (stage_type == STAGE_FRAGMENT){
+        return EShLangFragment;
+    }else{
+        fprintf(stderr, "Not a valid stage input type");
+        return EShLangVertex;
+    }
+}
+
+static void add_defines(glslang::TShader* shader, const args_t& args, std::string& def){
+    std::vector<std::string> processes;
+
+    for (int i = 0; i < args.defines.size(); i++) {
+        const define_t& d = args.defines[i];
+        def += "#define " + d.def;
+        if (!d.value.empty()) {
+            def += std::string(" ") + d.value;
+        }
+        def += std::string("\n");
+
+        processes.push_back("define-macro " + d.def);
+        if (!d.value.empty()){
+            processes.back().append("=" + d.value);
+        }
+    }
+
+    shader->setPreamble(def.c_str());
+    shader->addProcesses(processes);
+}
+
+bool supershader::compile_to_spirv(std::vector<spirv_t>& spirvvec, const std::vector<input_t>& inputs, const args_t& args){
+    glslang::InitializeProcess();
+
+    std::list<glslang::TShader*> shaders;
+
+    FileIncluder includer;
+
+    if (!args.include_dir.empty())
+        includer.addLocalDirectory(args.include_dir);
+
+    glslang::TProgram* program = new glslang::TProgram;
+
+    EShMessages messages = EShMsgDefault;
+    int default_version = 100; // 110 for desktop
+
+    // To be used in layout(location = SEMANTIC) for HLSL
+    std::string semantics_def;
+    for (int i = 0; i < VERTEX_ATTRIB_COUNT; i++) {
+        semantics_def += std::string("#define " + std::string(k_attrib_names[i]) + " " + std::to_string(i) + "\n");
+    }
+
+    // For more HLSL compatibility
+    for (int i = 0; i < 8; i++) {
+        semantics_def += std::string("#define SV_Target" + std::to_string(i) + " " + std::to_string(i) + "\n");
+    }
+
+    for (int i = 0; i < inputs.size(); i++){
+        std::string def("#extension GL_GOOGLE_include_directive : require\n");
+        def += semantics_def;
+
+        if (args.lang == LANG_GLSL && args.profile == 100) {
+            def += std::string("#define flat\n");
+        }
+
+        EShLanguage stage = get_stage(inputs[i].stage_type);
+
+        glslang::TShader* shader = new glslang::TShader(stage);
+
+        const char* sources[1] = { inputs[i].source.c_str() };
+        const int sourcesLen[1] = { (int) inputs[i].source.length() };
+        const char* sourcesNames[1] = { inputs[i].filename.c_str() };
+
+        shader->setStringsWithLengthsAndNames(sources, sourcesLen, sourcesNames, 1);
+        shader->setEnvInput(glslang::EShSourceGlsl, stage, glslang::EShClientOpenGL, default_version);
+        shader->setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_0);
+        shader->setEnvTarget(glslang::EshTargetSpv, glslang::EShTargetSpv_1_0);
+
+        shader->setAutoMapLocations(true);
+        shader->setAutoMapBindings(true);
+
+        add_defines(shader, args, def);
+
+        shaders.push_back(shader);
+
+        bool parse_success = shader->parse(&DefaultTBuiltInResource, default_version, false, messages, includer);
+        output_error(shader->getInfoLog(), ("File: " + inputs[i].filename).c_str());
+        output_error(shader->getInfoDebugLog(), ("File: " + inputs[i].filename).c_str());
+        if (!parse_success) {
+            cleanup_program_shaders(program, shaders);
+            return false;
+        }
+
+        program->addShader(shader);
+    }
+
+    bool link_success = program->link(messages);
+    output_error(program->getInfoLog(), "Link failed:");
+    output_error(program->getInfoDebugLog(), "Link failed:");
+    if (!link_success) {
+        cleanup_program_shaders(program, shaders);
+        return false;
+    }
+
+    bool map_success = program->mapIO();
+    output_error(program->getInfoLog(), "MapIO failed:");
+    output_error(program->getInfoDebugLog(), "MapIO failed:");
+    if (!map_success) {
+        cleanup_program_shaders(program, shaders);
+        return false;
+    }
+
+    for (int i = 0; i < inputs.size(); i++){
+
+        glslang::SpvOptions spv_opts;
+        spv_opts.validate = true;
+        spv_opts.disableOptimizer = false;
+        spv_opts.optimizeSize = true;
+        spv::SpvBuildLogger logger;
+        const glslang::TIntermediate* im = program->getIntermediate(get_stage(inputs[i].stage_type));
+        if (im){
+            glslang::GlslangToSpv(*im, spirvvec[i].bytecode, &logger, &spv_opts);
+            if (!logger.getAllMessages().empty())
+                puts(logger.getAllMessages().c_str());
+        }
+    }
+
+    if (args.list_includes)
+        output_included_files(includer.getIncludedFiles());
+
+    cleanup_program_shaders(program, shaders);
+    glslang::FinalizeProcess();
+    return true;
+}
+
+const TBuiltInResource DefaultTBuiltInResource = {
+    /* .MaxLights = */ 32,
+    /* .MaxClipPlanes = */ 6,
+    /* .MaxTextureUnits = */ 32,
+    /* .MaxTextureCoords = */ 32,
+    /* .MaxVertexAttribs = */ 64,
+    /* .MaxVertexUniformComponents = */ 4096,
+    /* .MaxVaryingFloats = */ 64,
+    /* .MaxVertexTextureImageUnits = */ 32,
+    /* .MaxCombinedTextureImageUnits = */ 80,
+    /* .MaxTextureImageUnits = */ 32,
+    /* .MaxFragmentUniformComponents = */ 4096,
+    /* .MaxDrawBuffers = */ 32,
+    /* .MaxVertexUniformVectors = */ 128,
+    /* .MaxVaryingVectors = */ 8,
+    /* .MaxFragmentUniformVectors = */ 16,
+    /* .MaxVertexOutputVectors = */ 16,
+    /* .MaxFragmentInputVectors = */ 15,
+    /* .MinProgramTexelOffset = */ -8,
+    /* .MaxProgramTexelOffset = */ 7,
+    /* .MaxClipDistances = */ 8,
+    /* .MaxComputeWorkGroupCountX = */ 65535,
+    /* .MaxComputeWorkGroupCountY = */ 65535,
+    /* .MaxComputeWorkGroupCountZ = */ 65535,
+    /* .MaxComputeWorkGroupSizeX = */ 1024,
+    /* .MaxComputeWorkGroupSizeY = */ 1024,
+    /* .MaxComputeWorkGroupSizeZ = */ 64,
+    /* .MaxComputeUniformComponents = */ 1024,
+    /* .MaxComputeTextureImageUnits = */ 16,
+    /* .MaxComputeImageUniforms = */ 8,
+    /* .MaxComputeAtomicCounters = */ 8,
+    /* .MaxComputeAtomicCounterBuffers = */ 1,
+    /* .MaxVaryingComponents = */ 60,
+    /* .MaxVertexOutputComponents = */ 64,
+    /* .MaxGeometryInputComponents = */ 64,
+    /* .MaxGeometryOutputComponents = */ 128,
+    /* .MaxFragmentInputComponents = */ 128,
+    /* .MaxImageUnits = */ 8,
+    /* .MaxCombinedImageUnitsAndFragmentOutputs = */ 8,
+    /* .MaxCombinedShaderOutputResources = */ 8,
+    /* .MaxImageSamples = */ 0,
+    /* .MaxVertexImageUniforms = */ 0,
+    /* .MaxTessControlImageUniforms = */ 0,
+    /* .MaxTessEvaluationImageUniforms = */ 0,
+    /* .MaxGeometryImageUniforms = */ 0,
+    /* .MaxFragmentImageUniforms = */ 8,
+    /* .MaxCombinedImageUniforms = */ 8,
+    /* .MaxGeometryTextureImageUnits = */ 16,
+    /* .MaxGeometryOutputVertices = */ 256,
+    /* .MaxGeometryTotalOutputComponents = */ 1024,
+    /* .MaxGeometryUniformComponents = */ 1024,
+    /* .MaxGeometryVaryingComponents = */ 64,
+    /* .MaxTessControlInputComponents = */ 128,
+    /* .MaxTessControlOutputComponents = */ 128,
+    /* .MaxTessControlTextureImageUnits = */ 16,
+    /* .MaxTessControlUniformComponents = */ 1024,
+    /* .MaxTessControlTotalOutputComponents = */ 4096,
+    /* .MaxTessEvaluationInputComponents = */ 128,
+    /* .MaxTessEvaluationOutputComponents = */ 128,
+    /* .MaxTessEvaluationTextureImageUnits = */ 16,
+    /* .MaxTessEvaluationUniformComponents = */ 1024,
+    /* .MaxTessPatchComponents = */ 120,
+    /* .MaxPatchVertices = */ 32,
+    /* .MaxTessGenLevel = */ 64,
+    /* .MaxViewports = */ 16,
+    /* .MaxVertexAtomicCounters = */ 0,
+    /* .MaxTessControlAtomicCounters = */ 0,
+    /* .MaxTessEvaluationAtomicCounters = */ 0,
+    /* .MaxGeometryAtomicCounters = */ 0,
+    /* .MaxFragmentAtomicCounters = */ 8,
+    /* .MaxCombinedAtomicCounters = */ 8,
+    /* .MaxAtomicCounterBindings = */ 1,
+    /* .MaxVertexAtomicCounterBuffers = */ 0,
+    /* .MaxTessControlAtomicCounterBuffers = */ 0,
+    /* .MaxTessEvaluationAtomicCounterBuffers = */ 0,
+    /* .MaxGeometryAtomicCounterBuffers = */ 0,
+    /* .MaxFragmentAtomicCounterBuffers = */ 1,
+    /* .MaxCombinedAtomicCounterBuffers = */ 1,
+    /* .MaxAtomicCounterBufferSize = */ 16384,
+    /* .MaxTransformFeedbackBuffers = */ 4,
+    /* .MaxTransformFeedbackInterleavedComponents = */ 64,
+    /* .MaxCullDistances = */ 8,
+    /* .MaxCombinedClipAndCullDistances = */ 8,
+    /* .MaxSamples = */ 4,
+    /* .maxMeshOutputVerticesNV = */ 256,
+    /* .maxMeshOutputPrimitivesNV = */ 512,
+    /* .maxMeshWorkGroupSizeX_NV = */ 32,
+    /* .maxMeshWorkGroupSizeY_NV = */ 1,
+    /* .maxMeshWorkGroupSizeZ_NV = */ 1,
+    /* .maxTaskWorkGroupSizeX_NV = */ 32,
+    /* .maxTaskWorkGroupSizeY_NV = */ 1,
+    /* .maxTaskWorkGroupSizeZ_NV = */ 1,
+    /* .maxMeshViewCountNV = */ 4,
+    /* .maxDualSourceDrawBuffersEXT = */ 1,
+
+    /* .limits = */ {
+        /* .nonInductiveForLoops = */ 1,
+        /* .whileLoops = */ 1,
+        /* .doWhileLoops = */ 1,
+        /* .generalUniformIndexing = */ 1,
+        /* .generalAttributeMatrixVectorIndexing = */ 1,
+        /* .generalVaryingIndexing = */ 1,
+        /* .generalSamplerIndexing = */ 1,
+        /* .generalVariableIndexing = */ 1,
+        /* .generalConstantMatrixVectorIndexing = */ 1,
+    }};
