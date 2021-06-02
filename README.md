@@ -12,7 +12,7 @@ cd libs/glslang/
 python update_glslang_sources.py
 ```
 
-2. Supershader uses CMake.
+2. Supershader uses CMake
 
 ```bash
 cmake -S $SOURCE_DIR -B $BUILD_DIR
@@ -51,22 +51,23 @@ cmake --build $BUILD_DIR --config Release
 - hlsl5: D3D11
 
 #### Output
-For default Supershader output format is a .sbs binary file.
+For default Supershader output format is .sbs binary file:
 
 ```bash
 ./supershader --vert=shader.vert --frag=shader.frag --output shaderoutput  --lang glsl330
 ```
-Generates ```shaderoutput.sbs``` file
+* Output: ```shaderoutput.sbs```
 
-With ```--json``` argument we have reflection info in json and bare shader output.
+With ```--json``` argument we have reflection info in json and bare shader output:
 
 ```bash
 ./supershader --vert=shader.vert --frag=shader.frag --output shaderoutput  --lang glsl330 --json
 ```
-Generates ```shaderoutput_glsl.json```, ```shaderoutput_vs.glsl```, ```shaderoutput_fs.glsl``` files
+* Output: ```shaderoutput_glsl.json```, ```shaderoutput_vs.glsl```, ```shaderoutput_fs.glsl```
 
 ### SBS file format
-Inspired on septag work file format: [sgs-file.h](https://github.com/septag/glslcc/blob/master/src/sgs-file.h).
+> Inspired by **septag** file format: [sgs-file.h](https://github.com/septag/glslcc/blob/master/src/sgs-file.h)
+
 Each block header is 8 bytes ( uint32_t fourcc code + uint32_t for size).
 - **SBS** block
 	- **struct sbs_chunk**
@@ -76,7 +77,7 @@ Each block header is 8 bytes ( uint32_t fourcc code + uint32_t for size).
 		- **REFL** block: Reflection data for the shader stage
 			- **struct sbs_chunk_refl**: reflection data header
 			- **struct sbs_refl_input[]**: array of vertex-shader input attributes (see `sbs_chunk_refl` for number of inputs)
-			- **struct sbs_refl_uniform_buffer[]**: array of uniform buffer objects (see `sbs_chunk_refl` for number of uniform buffers)
+			- **struct sbs_refl_uniformblock[]**: array of uniform blocks objects (see `sbs_chunk_refl` for number of uniform blocks)
 			- **struct sbs_refl_texture[]**: array of texture objects (see `sbs_chunk_refl` for number of textures)
 
 
