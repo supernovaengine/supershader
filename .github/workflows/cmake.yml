@@ -80,7 +80,7 @@ jobs:
           ninja --version
           cmake --version
           
-      - name: Update glslang sources (SPIRV-Cross)
+      - name: Update glslang sources (SPIRV-Tools)
         working-directory: libs/glslang
         run: |
           python update_glslang_sources.py

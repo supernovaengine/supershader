@@ -1,11 +1,13 @@
 ## Supershader: Cross-compiler for shader language
 
 **Supershader** is a command line tool that converts GLSL code to other GLSL versions, HLSL and MSL.
+
 It is used in [Supernova](https://github.com/supernovaengine/supernova) engine as shader creation tool.
+
 
 ### Build
 
-1. Download glslang external libs (SPIRV-Cross)
+1. Download glslang external libs (SPIRV-Tools)
 
 ```bash
 cd libs/glslang/
@@ -20,6 +22,7 @@ cmake -S $SOURCE_DIR -B $BUILD_DIR
 cmake --build $BUILD_DIR --config Release
 # "Release" (for --config) could also be "Debug", "MinSizeRel", or "RelWithDebInfo"
 ```
+
 
 ### Usage
 ```bash
@@ -65,6 +68,7 @@ With ```--json``` argument we have reflection info in json and bare shader outpu
 ```
 * Output: ```shaderoutput_glsl.json```, ```shaderoutput_vs.glsl```, ```shaderoutput_fs.glsl```
 
+
 ### SBS file format
 > Inspired by **septag** file format: [sgs-file.h](https://github.com/septag/glslcc/blob/master/src/sgs-file.h)
 
@@ -84,6 +88,7 @@ Each block header is 8 bytes ( uint32_t fourcc code + uint32_t for size).
 ### Inspired by
 - sokol-shdc (https://github.com/floooh/sokol-tools/blob/master/docs/sokol-shdc.md)
 - glslcc (https://github.com/septag/glslcc)
+
 
 ### External libraries
 - glslang (https://github.com/KhronosGroup/glslang)
