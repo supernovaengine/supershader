@@ -121,7 +121,7 @@ args_t supershader::parse_args(int argc, const char **argv){
 
     struct argparse argparse;
     argparse_init(&argparse, options, usage, 0);
-    argparse_describe(&argparse, "\nSupershader v1.0.0\nhttps://github.com/supernovaengine/supershader", 
+    argparse_describe(&argparse, "\nSupershader v1.0\nhttps://github.com/supernovaengine/supershader", 
                                 "\nCurrent supported shader stages:"
                                 "\n  - Vertex shader (--vert)"
                                 "\n  - Fragment shader (--frag)"

@@ -9,7 +9,8 @@ function(remove_compile_options DEST_VAR COMPILER_FLAGS FLAGS)
         set(${DEST_VAR} ${COMPILER_FLAGS} PARENT_SCOPE)
 endfunction()
 
-option(STATIC_LINK "Statically link with system standard libraries. Affects release build only" OFF)
+option(STATIC_LINK "Statically link with system standard libraries. Affects release build only" ON)
+
 option(ENABLE_SPVREMAPPER "Enables building of SPVRemapper" ON)
 option(ENABLE_AMD_EXTENSIONS "Enables support of AMD-specific extensions" ON)
 option(ENABLE_GLSLANG_BINARIES "Builds glslangValidator and spirv-remap" ON)

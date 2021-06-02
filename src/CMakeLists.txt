@@ -36,9 +36,9 @@ elseif (NOT WIN32)
 endif()
 
 # static linking
-if (STATIC_LINK AND NOT MSVC)
-	if (CMAKE_BUILD_TYPE STREQUAL Release)
-		set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++")
+if (STATIC_LINK AND WIN32 AND NOT MSVC)
+	if ((CMAKE_BUILD_TYPE STREQUAL Release) OR (CMAKE_BUILD_TYPE STREQUAL MinSizeRel))
+		set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++ -static")
 		#if (APPLE)
 		#	add_custom_command(TARGET supershader POST_BUILD COMMAND strip -X -x ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/supershader)
 		#elseif (NOT WIN32)
@@ -48,5 +48,5 @@ if (STATIC_LINK AND NOT MSVC)
 endif()	
 
 install(TARGETS supershader 
-        CONFIGURATIONS Release
+        CONFIGURATIONS Release MinSizeRel 
         RUNTIME DESTINATION bin)

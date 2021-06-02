@@ -4,7 +4,15 @@
 It is used in [Supernova](https://github.com/supernovaengine/supernova) engine as shader creation tool.
 
 ### Build
-Supershader uses CMake.
+
+1. Download glslang external libs (SPIRV-Cross)
+
+```bash
+cd libs/glslang/
+python update_glslang_sources.py
+```
+
+2. Supershader uses CMake.
 
 ```bash
 cmake -S $SOURCE_DIR -B $BUILD_DIR
@@ -60,16 +68,16 @@ Generates ```shaderoutput_glsl.json```, ```shaderoutput_vs.glsl```, ```shaderout
 ### SBS file format
 Inspired on septag work file format: [sgs-file.h](https://github.com/septag/glslcc/blob/master/src/sgs-file.h).
 Each block header is 8 bytes ( uint32_t fourcc code + uint32_t for size).
-- `SBS` block
-	- `struct sbs_chunk`
-	- `STAG` blocks: defines each shader stage (vs or fs)
-        - `struct sbs_stage`
-		- [`CODE` | `DATA`] block: actual code or binary (byte-code) data for the shader stage
-		- `REFL` block: Reflection data for the shader stage
-			- `struct sbs_chunk_refl`: reflection data header
-			- `struct sbs_refl_input[]`: array of vertex-shader input attributes (see `sbs_chunk_refl` for number of inputs)
-			- `struct sbs_refl_uniform_buffer[]`: array of uniform buffer objects (see `sbs_chunk_refl` for number of uniform buffers)
-			- `struct sbs_refl_texture[]`: array of texture objects (see `sbs_chunk_refl` for number of textures)
+- **SBS** block
+	- **struct sbs_chunk**
+	- **STAG** blocks: defines each shader stage (vs or fs)
+        - **struct sbs_stage**
+		- **[CODE or DATA]** block: actual code or binary (byte-code) data for the shader stage
+		- **REFL** block: Reflection data for the shader stage
+			- **struct sbs_chunk_refl**: reflection data header
+			- **struct sbs_refl_input[]**: array of vertex-shader input attributes (see `sbs_chunk_refl` for number of inputs)
+			- **struct sbs_refl_uniform_buffer[]**: array of uniform buffer objects (see `sbs_chunk_refl` for number of uniform buffers)
+			- **struct sbs_refl_texture[]**: array of texture objects (see `sbs_chunk_refl` for number of textures)
 
 
 ### Inspired by
