@@ -3,6 +3,10 @@
 #include "argparse.h"
 #include <sstream>
 
+#ifndef SUPERSHADER_VERSION
+#define SUPERSHADER_VERSION ""
+#endif
+
 using namespace supershader;
 
 const char kPathSeparator =
@@ -118,10 +122,11 @@ args_t supershader::parse_args(int argc, const char **argv){
         OPT_END(),
     };
 
+    std::string description = "\nSupershader "+std::string(SUPERSHADER_VERSION)+"\nhttps://github.com/supernovaengine/supershader";
 
     struct argparse argparse;
     argparse_init(&argparse, options, usage, 0);
-    argparse_describe(&argparse, "\nSupershader v1.0\nhttps://github.com/supernovaengine/supershader", 
+    argparse_describe(&argparse, description.c_str(), 
                                 "\nCurrent supported shader stages:"
                                 "\n  - Vertex shader (--vert)"
                                 "\n  - Fragment shader (--frag)"

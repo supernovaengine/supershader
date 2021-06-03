@@ -1,4 +1,6 @@
 cmake_minimum_required(VERSION 3.0)
+
+add_definitions("-DSUPERSHADER_VERSION=${SUPERSHADER_VERSION}")
 				 
 add_executable(supershader 
         main.cc
