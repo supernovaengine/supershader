@@ -83,7 +83,7 @@ extern const TBuiltInResource DefaultTBuiltInResource;
 
 static void output_error(const char* str, const char* header){
     if (str && str[0]){
-        fprintf(stdout, "%s\n", header);
+        fprintf(stderr, "%s\n", header);
         fprintf(stderr, "%s\n", str);
     }
 }
