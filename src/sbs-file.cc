@@ -12,6 +12,7 @@ using namespace supershader;
 #define makefourcc(_a, _b, _c, _d) (((uint32_t)(_a) | ((uint32_t)(_b) << 8) | ((uint32_t)(_c) << 16) | ((uint32_t)(_d) << 24)))
 
 #define SBS_VERSION 100
+#define NAME_SIZE 32
 
 #pragma pack(push, 1)
 
@@ -60,22 +61,22 @@ struct sbs_stage {
 
 // REFL
 struct sbs_chunk_refl {
-    char     name[32];
+    char     name[NAME_SIZE];
     uint32_t num_inputs;
     uint32_t num_textures;
     uint32_t num_uniform_blocks;
 };
 
 struct sbs_refl_input {
-    char     name[32];
+    char     name[NAME_SIZE];
     int32_t  location;
-    char     semantic_name[32];
+    char     semantic_name[NAME_SIZE];
     uint32_t semantic_index;
     uint32_t type;
 };
 
 struct sbs_refl_texture {
-    char     name[32];
+    char     name[NAME_SIZE];
     uint32_t set;
     int32_t  binding;
     uint32_t type;
@@ -83,7 +84,7 @@ struct sbs_refl_texture {
 }; 
 
 struct sbs_refl_uniformblock {
-    char     name[32];
+    char     name[NAME_SIZE];
     uint32_t set;
     int32_t  binding;
     uint32_t size_bytes;
@@ -161,6 +162,12 @@ static uint32_t get_texture_samplertype(texture_samplertype_t basetype){
     return 0;
 }
 
+static void copy_name(char* dest, const std::string& source){
+    size_t n = NAME_SIZE - 1;
+    strncpy(dest, source.c_str(), n);
+    dest[n] = '\0';
+}
+
 bool supershader::generate_sbs(const std::vector<spirvcross_t>& spirvcrossvec, const std::vector<input_t>& inputs, const args_t& args){
 
     std::string filename = args.output_dir + args.output_basename + ".sbs";
@@ -220,7 +227,7 @@ bool supershader::generate_sbs(const std::vector<spirvcross_t>& spirvcrossvec, c
         ofs.write((char *) &refl_size, sizeof(uint32_t));
 
         sbs_chunk_refl refl;
-        strcpy(refl.name, args.output_basename.substr(0, 32).c_str());
+        copy_name(refl.name, args.output_basename);
         refl.num_inputs = num_inputs;
         refl.num_uniform_blocks = num_ubs;
         refl.num_textures = num_textures;
@@ -229,8 +236,8 @@ bool supershader::generate_sbs(const std::vector<spirvcross_t>& spirvcrossvec, c
 
         for (int a = 0; a < num_inputs; a++){
             sbs_refl_input refl_input;
-            strcpy(refl_input.name, spirvcrossvec[i].inputs[a].name.substr(0, 32).c_str());
-            strcpy(refl_input.semantic_name, spirvcrossvec[i].inputs[a].semantic_name.substr(0, 32).c_str());
+            copy_name(refl_input.name, spirvcrossvec[i].inputs[a].name);
+            copy_name(refl_input.semantic_name, spirvcrossvec[i].inputs[a].semantic_name);
             refl_input.location = spirvcrossvec[i].inputs[a].location;
             refl_input.semantic_index = spirvcrossvec[i].inputs[a].semantic_index;
             refl_input.type = get_vertex_type(spirvcrossvec[i].inputs[a].type);
@@ -240,7 +247,7 @@ bool supershader::generate_sbs(const std::vector<spirvcross_t>& spirvcrossvec, c
 
         for (int a = 0; a < num_ubs; a++){
             sbs_refl_uniformblock refl_uniformbuffer;
-            strcpy(refl_uniformbuffer.name, spirvcrossvec[i].uniform_blocks[a].name.substr(0, 32).c_str());
+            copy_name(refl_uniformbuffer.name, spirvcrossvec[i].uniform_blocks[a].name);
             refl_uniformbuffer.set = spirvcrossvec[i].uniform_blocks[a].set;
             refl_uniformbuffer.binding = spirvcrossvec[i].uniform_blocks[a].binding;
             refl_uniformbuffer.size_bytes = spirvcrossvec[i].uniform_blocks[a].size_bytes;
@@ -250,7 +257,7 @@ bool supershader::generate_sbs(const std::vector<spirvcross_t>& spirvcrossvec, c
 
         for (int a = 0; a < num_textures; a++){
             sbs_refl_texture refl_texture;
-            strcpy(refl_texture.name, spirvcrossvec[i].textures[a].name.substr(0, 32).c_str());
+            copy_name(refl_texture.name, spirvcrossvec[i].textures[a].name.c_str());
             refl_texture.set = spirvcrossvec[i].textures[a].set;
             refl_texture.binding = spirvcrossvec[i].textures[a].binding;
             refl_texture.type = get_texture_format(spirvcrossvec[i].textures[a].type);
