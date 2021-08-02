@@ -142,7 +142,7 @@ bool supershader::generate_json(const std::vector<spirvcross_t>& spirvcrossvec, 
     json j;
 
     j["language"] = lang_to_string(args.lang);
-    j["profile_version"] = args.profile;
+    j["version"] = args.version;
 
     for (int i = 0; i < spirvcrossvec.size(); i++){
         json sj;

@@ -84,8 +84,9 @@ args_t supershader::parse_args(int argc, const char **argv){
     args.vert_file = "";
     args.frag_file = "";
     args.lang = LANG_GLSL;
-    args.profile = 0;
+    args.version = 0;
     args.es = false;
+    args.platform = PLATFORM_DEFAULT;
     args.output_basename = "";
     args.output_dir = "";
     args.include_dir = "";
@@ -136,7 +137,11 @@ args_t supershader::parse_args(int argc, const char **argv){
                                 "\n  - glsl100: GLES2 / WebGL"
                                 "\n  - glsl300es: GLES3 / WebGL2"
                                 "\n  - hlsl4: D3D11"
-                                "\n  - hlsl5: D3D11");
+                                "\n  - hlsl5: D3D11"
+                                "\n  - msl12_macos: Metal for MacOS"
+                                "\n  - msl21_macos: Metal for MacOS"
+                                "\n  - msl12_ios: Metal for iOS"
+                                "\n  - msl21_ios: Metal for iOS");
     argc = argparse_parse(&argparse, argc, argv);
 
     args.isValid = true;
@@ -156,30 +161,46 @@ args_t supershader::parse_args(int argc, const char **argv){
 
     if (lang){
         std::string templang = lang;
-        if (templang != "glsl330" && templang != "glsl100" && templang != "glsl300es" && templang != "hlsl4" && templang != "hlsl5"){
-            fprintf( stderr, "Unsupported shader output language: %s\n", lang);
-            args.isValid = false;
-        }else if (templang == "glsl330"){
+        if (templang == "glsl330"){
             args.lang = LANG_GLSL;
-            args.profile = 330;
+            args.version = 330;
         }else if (templang == "glsl100"){
             args.lang = LANG_GLSL;
-            args.profile = 100;
+            args.version = 100;
             args.es = true;
         }else if (templang == "glsl300es"){
             args.lang = LANG_GLSL;
-            args.profile = 300;
+            args.version = 300;
             args.es = true;
         }else if (templang == "hlsl4"){
             args.lang = LANG_HLSL;
-            args.profile = 40;
+            args.version = 40;
         }else if (templang == "hlsl5"){
             args.lang = LANG_HLSL;
-            args.profile = 50;
+            args.version = 50;
+        }else if (templang == "msl12_macos"){
+            args.lang = LANG_MSL;
+            args.version = 10200;
+            args.platform = PLATFORM_MACOS;
+        }else if (templang == "msl21_macos"){
+            args.lang = LANG_MSL;
+            args.version = 20100;
+            args.platform = PLATFORM_MACOS;
+        }else if (templang == "msl12_ios"){
+            args.lang = LANG_MSL;
+            args.version = 10200;
+            args.platform = PLATFORM_IOS;
+        }else if (templang == "msl21_ios"){
+            args.lang = LANG_MSL;
+            args.version = 20100;
+            args.platform = PLATFORM_IOS;
+        }else{
+            fprintf( stderr, "Unsupported shader output language: %s\n", lang);
+            args.isValid = false;
         }
     } else {
         args.lang = LANG_GLSL;
-        args.profile = 330;
+        args.version = 330;
         fprintf( stdout, "Not defined shader output language, using: gles330\n");
     }
 

@@ -21,6 +21,12 @@ namespace supershader{
         LANG_MSL
     };
 
+    enum platform_t{
+        PLATFORM_DEFAULT,
+        PLATFORM_MACOS,
+        PLATFORM_IOS
+    };
+
     struct args_t{
         bool isValid;
         
@@ -28,8 +34,9 @@ namespace supershader{
         std::string frag_file;
 
         lang_type_t lang;
-        int profile;
+        int version;
         bool es;
+        platform_t platform;
 
         std::string output_basename;
         std::string output_dir;

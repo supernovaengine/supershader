@@ -264,29 +264,40 @@ bool supershader::compile_to_lang(std::vector<spirvcross_t>& spirvcrossvec, cons
         }
 
         spirv_cross::CompilerGLSL::Options opts = compiler->get_common_options();
+        
         opts.flatten_multidimensional_arrays = true;
+
         if (args.lang == LANG_GLSL) {
             opts.emit_line_directives = false;
             opts.enable_420pack_extension = false;
             opts.es = args.es;
-            opts.version = args.profile;
+            opts.version = args.version;
         } else if (args.lang == LANG_HLSL) {
             spirv_cross::CompilerHLSL* hlsl = (spirv_cross::CompilerHLSL*)compiler.get();
             spirv_cross::CompilerHLSL::Options hlsl_opts = hlsl->get_hlsl_options();
 
             opts.emit_line_directives = true;
 
-            hlsl_opts.shader_model = args.profile;
+            hlsl_opts.shader_model = args.version;
             hlsl_opts.point_size_compat = true;
             hlsl_opts.point_coord_compat = true;
 
             hlsl->set_hlsl_options(hlsl_opts);
+        } else if (args.lang == LANG_MSL) {
+            spirv_cross::CompilerMSL* msl = (spirv_cross::CompilerMSL*)compiler.get();
+            spirv_cross::CompilerMSL::Options msl_opts = msl->get_msl_options();
 
-            uint32_t new_builtin = hlsl->remap_num_workgroups_builtin();
-            if (new_builtin) {
-                hlsl->set_decoration(new_builtin, spv::DecorationDescriptorSet, 0);
-                hlsl->set_decoration(new_builtin, spv::DecorationBinding, 0);
+            opts.emit_line_directives = true;
+
+            if (args.platform == PLATFORM_MACOS){
+                msl_opts.platform = spirv_cross::CompilerMSL::Options::macOS;
+            }else if (args.platform == PLATFORM_IOS){
+                msl_opts.platform = spirv_cross::CompilerMSL::Options::iOS;
             }
+            msl_opts.enable_decoration_binding = true;
+            msl_opts.msl_version = args.version;
+
+            msl->set_msl_options(msl_opts);
         }
 
         compiler->set_common_options(opts);

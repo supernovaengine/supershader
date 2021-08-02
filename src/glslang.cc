@@ -295,7 +295,7 @@ bool supershader::compile_to_spirv(std::vector<spirv_t>& spirvvec, const std::ve
         std::string def("#extension GL_GOOGLE_include_directive : require\n");
         def += semantics_def;
 
-        if (args.lang == LANG_GLSL && args.profile == 100) {
+        if (args.lang == LANG_GLSL && args.version == 100) {
             def += std::string("#define flat\n");
         }
 
@@ -351,7 +351,7 @@ bool supershader::compile_to_spirv(std::vector<spirv_t>& spirvvec, const std::ve
         glslang::SpvOptions spv_opts;
         spv_opts.validate = true;
         spv_opts.optimizeSize = true;
-        if (args.lang == LANG_GLSL && args.profile == 100){
+        if (args.lang == LANG_GLSL && args.version == 100){
             // Disable this glslang internal optimizer that is broken with WEBGL1 shaders
             spv_opts.disableOptimizer = true;
         }else{
@@ -361,7 +361,7 @@ bool supershader::compile_to_spirv(std::vector<spirv_t>& spirvvec, const std::ve
         const glslang::TIntermediate* im = program->getIntermediate(get_stage(inputs[i].stage_type));
         if (im){
             glslang::GlslangToSpv(*im, spirvvec[i].bytecode, &logger, &spv_opts);
-            if (args.lang == LANG_GLSL && args.profile == 100){
+            if (args.lang == LANG_GLSL && args.version == 100){
                 // It is the same of glslang optimizer with some parts removed
                 #if ENABLE_OPT
                 spirv_optimize(*im, spirvvec[i].bytecode, &logger, &spv_opts);

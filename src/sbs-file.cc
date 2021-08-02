@@ -50,7 +50,7 @@ using namespace supershader;
 struct sbs_chunk {
     uint32_t sbs_version;
     uint32_t lang;
-    uint32_t profile_version;
+    uint32_t version;
     uint16_t es;
 };
 
@@ -187,7 +187,7 @@ bool supershader::generate_sbs(const std::vector<spirvcross_t>& spirvcrossvec, c
     sbs_chunk sbs;
     sbs.sbs_version = SBS_VERSION;
     sbs.lang = get_lang(args.lang);
-    sbs.profile_version = args.profile;
+    sbs.version = args.version;
     sbs.es = args.es;
     ofs.write((char *) &sbs, sizeof(sbs_chunk));
 
