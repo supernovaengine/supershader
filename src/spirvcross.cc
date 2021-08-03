@@ -266,29 +266,34 @@ bool supershader::compile_to_lang(std::vector<spirvcross_t>& spirvcrossvec, cons
         spirv_cross::CompilerGLSL::Options opts = compiler->get_common_options();
         
         opts.flatten_multidimensional_arrays = true;
+        opts.vertex.fixup_clipspace = false;
+        opts.vertex.flip_vert_y = false;
 
         if (args.lang == LANG_GLSL) {
+
             opts.emit_line_directives = false;
             opts.enable_420pack_extension = false;
             opts.es = args.es;
             opts.version = args.version;
+
         } else if (args.lang == LANG_HLSL) {
-            spirv_cross::CompilerHLSL* hlsl = (spirv_cross::CompilerHLSL*)compiler.get();
-            spirv_cross::CompilerHLSL::Options hlsl_opts = hlsl->get_hlsl_options();
 
             opts.emit_line_directives = true;
 
+            spirv_cross::CompilerHLSL* hlsl = (spirv_cross::CompilerHLSL*)compiler.get();
+            spirv_cross::CompilerHLSL::Options hlsl_opts = hlsl->get_hlsl_options();
             hlsl_opts.shader_model = args.version;
             hlsl_opts.point_size_compat = true;
             hlsl_opts.point_coord_compat = true;
 
             hlsl->set_hlsl_options(hlsl_opts);
+
         } else if (args.lang == LANG_MSL) {
-            spirv_cross::CompilerMSL* msl = (spirv_cross::CompilerMSL*)compiler.get();
-            spirv_cross::CompilerMSL::Options msl_opts = msl->get_msl_options();
 
             opts.emit_line_directives = true;
 
+            spirv_cross::CompilerMSL* msl = (spirv_cross::CompilerMSL*)compiler.get();
+            spirv_cross::CompilerMSL::Options msl_opts = msl->get_msl_options();
             if (args.platform == PLATFORM_MACOS){
                 msl_opts.platform = spirv_cross::CompilerMSL::Options::macOS;
             }else if (args.platform == PLATFORM_IOS){
@@ -298,6 +303,7 @@ bool supershader::compile_to_lang(std::vector<spirvcross_t>& spirvcrossvec, cons
             msl_opts.msl_version = args.version;
 
             msl->set_msl_options(msl_opts);
+
         }
 
         compiler->set_common_options(opts);

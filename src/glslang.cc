@@ -299,6 +299,17 @@ bool supershader::compile_to_spirv(std::vector<spirv_t>& spirvvec, const std::ve
             def += std::string("#define flat\n");
         }
 
+        if (args.lang == LANG_GLSL){
+            def += std::string("#define IS_GLSL\n");
+            if (args.es){
+                def += std::string("#define IS_GLES\n");
+            }
+        }else if (args.lang == LANG_HLSL){
+            def += std::string("#define IS_HLSL\n");
+        }else if (args.lang == LANG_MSL){
+            def += std::string("#define IS_MSL\n");
+        }
+
         EShLanguage stage = get_stage(inputs[i].stage_type);
 
         glslang::TShader* shader = new glslang::TShader(stage);
