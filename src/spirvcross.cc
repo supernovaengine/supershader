@@ -266,12 +266,12 @@ bool supershader::compile_to_lang(std::vector<spirvcross_t>& spirvcrossvec, cons
         spirv_cross::CompilerGLSL::Options opts = compiler->get_common_options();
         
         opts.flatten_multidimensional_arrays = true;
-        opts.vertex.fixup_clipspace = false;
         opts.vertex.flip_vert_y = false;
 
         if (args.lang == LANG_GLSL) {
 
             opts.emit_line_directives = false;
+            opts.vertex.fixup_clipspace = false;
             opts.enable_420pack_extension = false;
             opts.es = args.es;
             opts.version = args.version;
@@ -279,6 +279,7 @@ bool supershader::compile_to_lang(std::vector<spirvcross_t>& spirvcrossvec, cons
         } else if (args.lang == LANG_HLSL) {
 
             opts.emit_line_directives = true;
+            opts.vertex.fixup_clipspace = true;
 
             spirv_cross::CompilerHLSL* hlsl = (spirv_cross::CompilerHLSL*)compiler.get();
             spirv_cross::CompilerHLSL::Options hlsl_opts = hlsl->get_hlsl_options();
@@ -291,6 +292,7 @@ bool supershader::compile_to_lang(std::vector<spirvcross_t>& spirvcrossvec, cons
         } else if (args.lang == LANG_MSL) {
 
             opts.emit_line_directives = true;
+            opts.vertex.fixup_clipspace = true;
 
             spirv_cross::CompilerMSL* msl = (spirv_cross::CompilerMSL*)compiler.get();
             spirv_cross::CompilerMSL::Options msl_opts = msl->get_msl_options();
