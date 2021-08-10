@@ -46,6 +46,7 @@ namespace supershader{
         bool list_includes;
 
         bool json;
+        bool optimization;
     };
 
     enum stage_type_t{

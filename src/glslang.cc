@@ -370,7 +370,9 @@ bool supershader::compile_to_spirv(std::vector<spirv_t>& spirvvec, const std::ve
             glslang::GlslangToSpv(*im, spirvvec[i].bytecode, &logger, &spv_opts);
             // It is the same of glslang optimizer with some parts removed
             #if ENABLE_OPT
-            spirv_optimize(*im, spirvvec[i].bytecode, &logger, &spv_opts);
+            if (args.optimization){
+                spirv_optimize(*im, spirvvec[i].bytecode, &logger, &spv_opts);
+            }
             #endif
             if (!logger.getAllMessages().empty())
                 puts(logger.getAllMessages().c_str());

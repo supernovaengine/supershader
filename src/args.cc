@@ -93,6 +93,7 @@ args_t supershader::parse_args(int argc, const char **argv){
     args.defines.clear();
     args.list_includes = false;
     args.json = false;
+    args.optimization = true;
 
     const char *vert_file = NULL;
     const char *frag_file = NULL;
@@ -102,6 +103,7 @@ args_t supershader::parse_args(int argc, const char **argv){
     const char *defines = NULL;
     int list_includes = 0;
     int json = 0;
+    int disable_optimization = 0;
 
     static const char *const usage[] = {
     "supershader --vert <vertex shader> [[--] args]",
@@ -120,6 +122,7 @@ args_t supershader::parse_args(int argc, const char **argv){
         OPT_STRING('D', "defines", &defines, "preprocessor definitions, seperated by ';'"),
         OPT_BOOLEAN('L', "list-includes", &list_includes, "print included files"),
         OPT_BOOLEAN('J', "json", &json, "output in json and bare shader format"),
+        OPT_BOOLEAN('d', "disable-optimization", &disable_optimization, "disable shader lang optimizations"),
         OPT_END(),
     };
 
@@ -225,6 +228,10 @@ args_t supershader::parse_args(int argc, const char **argv){
 
     if (json != 0){
         args.json = true;
+    }
+
+    if (disable_optimization != 0){
+        args.optimization = false;
     }
         
 
