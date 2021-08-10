@@ -143,7 +143,7 @@ static void add_defines(glslang::TShader* shader, const args_t& args, std::strin
 
 #if ENABLE_OPT
 //
-// Start modified part of SpvTools.cpp/SpirvToolsTransform to work with WEBGL1 shaders
+// Start modified part of SpvTools.cpp/SpirvToolsTransform to work with WEBGL1 and HLSL shaders
 // Check this if changed glslang version
 //
 spv_target_env MapToSpirvToolsEnv(const glslang::SpvVersion& spvVersion, spv::SpvBuildLogger* logger)
@@ -362,22 +362,16 @@ bool supershader::compile_to_spirv(std::vector<spirv_t>& spirvvec, const std::ve
         glslang::SpvOptions spv_opts;
         spv_opts.validate = true;
         spv_opts.optimizeSize = true;
-        if (args.lang == LANG_GLSL && args.version == 100){
-            // Disable this glslang internal optimizer that is broken with WEBGL1 shaders
-            spv_opts.disableOptimizer = true;
-        }else{
-            spv_opts.disableOptimizer = false;
-        }
+        // Disable this glslang internal optimizer that is broken with WEBGL1 and HLSL shaders
+        spv_opts.disableOptimizer = true;
         spv::SpvBuildLogger logger;
         const glslang::TIntermediate* im = program->getIntermediate(get_stage(inputs[i].stage_type));
         if (im){
             glslang::GlslangToSpv(*im, spirvvec[i].bytecode, &logger, &spv_opts);
-            if (args.lang == LANG_GLSL && args.version == 100){
-                // It is the same of glslang optimizer with some parts removed
-                #if ENABLE_OPT
-                spirv_optimize(*im, spirvvec[i].bytecode, &logger, &spv_opts);
-                #endif
-            }
+            // It is the same of glslang optimizer with some parts removed
+            #if ENABLE_OPT
+            spirv_optimize(*im, spirvvec[i].bytecode, &logger, &spv_opts);
+            #endif
             if (!logger.getAllMessages().empty())
                 puts(logger.getAllMessages().c_str());
         }
