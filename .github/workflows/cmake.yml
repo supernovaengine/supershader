@@ -97,7 +97,6 @@ jobs:
             -S . \
             -B build \
             -DSUPERSHADER_VERSION:STRING="${{ github.event.release.tag_name }}" \
-            -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
             -G "${{ matrix.config.generators }}" \
             -DCMAKE_INSTALL_PREFIX:PATH=instdir
 
