@@ -85,9 +85,11 @@ struct sbs_refl_texture {
 
 struct sbs_refl_uniformblock {
     char     name[NAME_SIZE];
+    char     inst_name[NAME_SIZE];
     uint32_t set;
     int32_t  binding;
     uint32_t size_bytes;
+    bool     flattened;
 };
 
 #pragma pack(pop)
@@ -248,9 +250,11 @@ bool supershader::generate_sbs(const std::vector<spirvcross_t>& spirvcrossvec, c
         for (int a = 0; a < num_ubs; a++){
             sbs_refl_uniformblock refl_uniformbuffer;
             copy_name(refl_uniformbuffer.name, spirvcrossvec[i].uniform_blocks[a].name);
+            copy_name(refl_uniformbuffer.inst_name, spirvcrossvec[i].uniform_blocks[a].inst_name);
             refl_uniformbuffer.set = spirvcrossvec[i].uniform_blocks[a].set;
             refl_uniformbuffer.binding = spirvcrossvec[i].uniform_blocks[a].binding;
             refl_uniformbuffer.size_bytes = spirvcrossvec[i].uniform_blocks[a].size_bytes;
+            refl_uniformbuffer.flattened = spirvcrossvec[i].uniform_blocks[a].flattened;
 
             ofs.write((char *) &refl_uniformbuffer, sizeof(sbs_refl_uniformblock));
         }

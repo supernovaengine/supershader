@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.15)
 
 add_definitions("-DSUPERSHADER_VERSION=${SUPERSHADER_VERSION}")
 				 
@@ -30,8 +30,8 @@ target_link_libraries(supershader PRIVATE
 
 if (MSVC)
 	if (ENABLE_D3D11_COMPILER)
-			add_definitions(-DD3D11_COMPILER)    
-			target_link_libraries(supershader PRIVATE d3dcompiler)    
+		add_definitions(-DD3D11_COMPILER)
+		target_link_libraries(supershader PRIVATE d3dcompiler)
 	endif()
 elseif (NOT WIN32)
 	
@@ -47,7 +47,13 @@ if (STATIC_LINK AND WIN32 AND NOT MSVC)
 		#	add_custom_command(TARGET supershader POST_BUILD COMMAND strip -g -X -x ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/supershader)
 		#endif()
 	endif()
-endif()	
+endif()
+
+set_target_properties(
+        supershader
+        PROPERTIES
+        CXX_STANDARD 11
+)
 
 install(TARGETS supershader 
         CONFIGURATIONS Release MinSizeRel 

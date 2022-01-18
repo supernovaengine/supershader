@@ -85,6 +85,22 @@ Each block header is 8 bytes ( uint32_t fourcc code + uint32_t for size).
 			- **struct sbs_refl_texture[]**: array of texture objects (see `sbs_chunk_refl` for number of textures)
 
 
+### Updates
+
+#### 1.3
+- Changed json and sbs file spec to support no flattened uniform blocks with float and int types inside
+
+#### 1.2
+- Option to disable optimization
+- Fixed optimization errors
+
+#### 1.1
+- Full Metal support
+- Shader lang defines
+
+#### 1.0
+- First version
+
 ### Inspired by
 - sokol-shdc (https://github.com/floooh/sokol-tools/blob/master/docs/sokol-shdc.md)
 - glslcc (https://github.com/septag/glslcc)

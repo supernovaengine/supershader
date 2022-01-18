@@ -187,9 +187,11 @@ bool supershader::generate_json(const std::vector<spirvcross_t>& spirvcrossvec, 
             s_uniform_block_t ub = spirvcrossvec[i].uniform_blocks[iub];
             json ubj;
             ubj["name"] = ub.name;
+            ubj["inst_name"] = ub.inst_name;
             ubj["set"] = ub.set;
             ubj["binding"] = ub.binding;
             ubj["size_bytes"] = ub.size_bytes;
+            ubj["flattened"] = ub.flattened;
 
             for (int iu = 0; iu < ub.uniforms.size(); iu++){
                 s_uniform_t u = ub.uniforms[iu];

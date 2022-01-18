@@ -102,6 +102,48 @@ static texture_samplertype_t spirtype_to_image_samplertype(const spirv_cross::SP
     }
 }
 
+static bool can_flatten_uniform_block(const spirv_cross::Compiler* compiler, const spirv_cross::Resource& ub_res) {
+    const spirv_cross::SPIRType& ub_type = compiler->get_type(ub_res.base_type_id);
+    spirv_cross::SPIRType::BaseType basic_type = spirv_cross::SPIRType::Unknown;
+    for (int m_index = 0; m_index < (int)ub_type.member_types.size(); m_index++) {
+        const spirv_cross::SPIRType& m_type = compiler->get_type(ub_type.member_types[m_index]);
+        if (basic_type == spirv_cross::SPIRType::Unknown) {
+            basic_type = m_type.basetype;
+            if ((basic_type != spirv_cross::SPIRType::Float) && (basic_type != spirv_cross::SPIRType::Int)) {
+                return false;
+            }
+        }
+        else if (basic_type != m_type.basetype) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool validate_uniform_blocks(const spirv_cross::Compiler* compiler, const spirv_cross::ShaderResources& res, const input_t& input) {
+    for (const spirv_cross::Resource& ub_res: res.uniform_buffers) {
+        const spirv_cross::SPIRType& ub_type = compiler->get_type(ub_res.base_type_id);
+        for (int m_index = 0; m_index < (int)ub_type.member_types.size(); m_index++) {
+            const spirv_cross::SPIRType& m_type = compiler->get_type(ub_type.member_types[m_index]);
+            if ((m_type.basetype != spirv_cross::SPIRType::Float) && (m_type.basetype != spirv_cross::SPIRType::Int)) {
+                fprintf(stderr, "%s: uniform block '%s': uniform blocks can only contain float or int base types\n", input.filename.c_str(), ub_res.name.c_str());
+                return false;
+            }
+            if (m_type.array.size() > 0) {
+                if (m_type.vecsize != 4) {
+                    fprintf(stderr, "%s: uniform block '%s': arrays must be of type vec4[], ivec4[] or mat4[]\n", input.filename.c_str(), ub_res.name.c_str());
+                    return false;
+                }
+                if (m_type.array.size() > 1) {
+                    fprintf(stderr, "%s: uniform block '%s': arrays must be 1-dimensional\n", input.filename.c_str(), ub_res.name.c_str());
+                    return false;
+                }
+            }
+        }
+    }
+    return true;
+}
+
 static bool parse_reflection(spirvcross_t& spirvcross, const spirv_cross::Compiler* compiler) {
 
     spirv_cross::ShaderResources shd_resources = compiler->get_shader_resources();
@@ -157,9 +199,14 @@ static bool parse_reflection(spirvcross_t& spirvcross, const spirv_cross::Compil
         const spirv_cross::SPIRType& ub_type = compiler->get_type(ub_res.base_type_id);
 
         ub.name = ub_res.name;
+        ub.inst_name = compiler->get_name(ub_res.id);
+        if (ub.inst_name.empty()){
+            ub.inst_name = compiler->get_fallback_name(ub_res.id);
+        }
         ub.set = compiler->get_decoration(ub_res.id, spv::DecorationDescriptorSet);
         ub.binding = compiler->get_decoration(ub_res.id, spv::DecorationBinding);
         ub.size_bytes = (int) compiler->get_declared_struct_size(ub_type);
+        ub.flattened = can_flatten_uniform_block(compiler, ub_res);
 
         for (int m_index = 0; m_index < (int)ub_type.member_types.size(); m_index++) {
             s_uniform_t uniform;
@@ -270,9 +317,11 @@ bool supershader::compile_to_lang(std::vector<spirvcross_t>& spirvcrossvec, cons
 
         if (args.lang == LANG_GLSL) {
 
+            opts.vulkan_semantics = false; //TODO: True if vulkan
             opts.emit_line_directives = false;
             opts.vertex.fixup_clipspace = false;
             opts.enable_420pack_extension = false;
+            opts.emit_uniform_buffer_as_plain_uniforms = true;  //TODO: False if vulkan
             opts.es = args.es;
             opts.version = args.version;
 
@@ -321,18 +370,21 @@ bool supershader::compile_to_lang(std::vector<spirvcross_t>& spirvcrossvec, cons
 
         fix_bind_slots(compiler.get(), inputs[i].stage_type, false);
 
-        // GL/GLES always flatten UBs to use only one glUniform4fv call
+        spirv_cross::ShaderResources res = compiler->get_shader_resources();
+        if (!validate_uniform_blocks(compiler.get(), res, inputs[i]))
+            return false;
+
+        // GL/GLES try to flatten UBs if attributes are same type to use only one glUniform4fv call
         // TODO: Not for Vulkan
         if (args.lang == LANG_GLSL) {
-            spirv_cross::ShaderResources res = compiler->get_shader_resources();
             for (const spirv_cross::Resource& ub_res: res.uniform_buffers) {
-                compiler->flatten_buffer_block(ub_res.id);
+                if (can_flatten_uniform_block(compiler.get(), ub_res)){
+                    compiler->flatten_buffer_block(ub_res.id);
+                }
             }
         }
         
         spirvcrossvec[i].source = compiler->compile();
-
-        //print_reflection(compiler.get());
 
         if (!parse_reflection(spirvcrossvec[i], compiler.get()))
             return false;

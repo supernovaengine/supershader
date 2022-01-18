@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.15)
 project(supershader)
 
 function(remove_compile_options DEST_VAR COMPILER_FLAGS FLAGS)
@@ -9,7 +9,7 @@ function(remove_compile_options DEST_VAR COMPILER_FLAGS FLAGS)
         set(${DEST_VAR} ${COMPILER_FLAGS} PARENT_SCOPE)
 endfunction()
 
-option(STATIC_LINK "Statically link with system standard libraries. Affects release build only" ON)
+option(STATIC_LINK "Statically link with system standard libraries" ON)
 
 option(ENABLE_SPVREMAPPER "Enables building of SPVRemapper" ON)
 option(ENABLE_AMD_EXTENSIONS "Enables support of AMD-specific extensions" ON)
@@ -41,20 +41,12 @@ if(ENABLE_HLSL)
     add_definitions(-DENABLE_HLSL)
 endif(ENABLE_HLSL)
 
-if ((CMAKE_C_COMPILER_ID MATCHES "Clang") OR (CMAKE_C_COMPILER_ID MATCHES "GNU"))
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu11")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-endif()
-
 if (MSVC)
 	remove_compile_options(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" "/GR")
 	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} /wd4530")
 	
 	if (STATIC_LINK)
-		remove_compile_options(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}" "/MD")
-		remove_compile_options(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}" "/MD")
-		set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")
-		set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /MT")
+        set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 	endif()
 endif()
 

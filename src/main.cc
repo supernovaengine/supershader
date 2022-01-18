@@ -25,7 +25,7 @@ int main(int argc, const char **argv){
 		return EXIT_FAILURE;
 
 	if (spirvvec.size() != inputs.size()){
-		fprintf(stderr, "Error in pipeline when compile to SPIRV");
+		fprintf(stderr, "Error in pipeline when compile to SPIRV\n");
 		return EXIT_FAILURE;
 	}
 
@@ -35,7 +35,7 @@ int main(int argc, const char **argv){
 		return EXIT_FAILURE;
 
 	if (spirvcrossvec.size() != inputs.size()){
-		fprintf(stderr, "Error in pipeline when compile to shader lang");
+		fprintf(stderr, "Error in pipeline when compile to shader lang\n");
 		return EXIT_FAILURE;
 	}
 

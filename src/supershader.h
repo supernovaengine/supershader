@@ -207,9 +207,11 @@ namespace supershader{
 
     struct s_uniform_block_t {
         std::string name;
+        std::string inst_name;
         uint32_t set;
         uint32_t binding;
         unsigned int size_bytes;
+        bool flattened = false;
         std::vector<s_uniform_t> uniforms;
     };
 
