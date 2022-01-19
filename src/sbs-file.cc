@@ -12,7 +12,7 @@ using namespace supershader;
 #define makefourcc(_a, _b, _c, _d) (((uint32_t)(_a) | ((uint32_t)(_b) << 8) | ((uint32_t)(_c) << 16) | ((uint32_t)(_d) << 24)))
 
 #define SBS_VERSION 100
-#define NAME_SIZE 32
+#define SBS_NAME_SIZE 32
 
 #pragma pack(push, 1)
 
@@ -38,6 +38,17 @@ using namespace supershader;
 #define SBS_VERTEXTYPE_INT3     makefourcc('I', 'N', 'T', '3')
 #define SBS_VERTEXTYPE_INT4     makefourcc('I', 'N', 'T', '4')
 
+#define SBS_UNIFORMTYPE_FLOAT    makefourcc('F', 'L', 'T', '1')
+#define SBS_UNIFORMTYPE_FLOAT2   makefourcc('F', 'L', 'T', '2')
+#define SBS_UNIFORMTYPE_FLOAT3   makefourcc('F', 'L', 'T', '3')
+#define SBS_UNIFORMTYPE_FLOAT4   makefourcc('F', 'L', 'T', '4')
+#define SBS_UNIFORMTYPE_INT      makefourcc('I', 'N', 'T', '1')
+#define SBS_UNIFORMTYPE_INT2     makefourcc('I', 'N', 'T', '2')
+#define SBS_UNIFORMTYPE_INT3     makefourcc('I', 'N', 'T', '3')
+#define SBS_UNIFORMTYPE_INT4     makefourcc('I', 'N', 'T', '4')
+#define SBS_UNIFORMTYPE_MAT3     makefourcc('M', 'A', 'T', '3')
+#define SBS_UNIFORMTYPE_MAT4     makefourcc('M', 'A', 'T', '4')
+
 #define SBS_TEXTURE_2D          makefourcc('2', 'D', ' ', ' ')
 #define SBS_TEXTURE_3D          makefourcc('3', 'D', ' ', ' ')
 #define SBS_TEXTURE_CUBE        makefourcc('C', 'U', 'B', 'E')
@@ -61,22 +72,23 @@ struct sbs_stage {
 
 // REFL
 struct sbs_chunk_refl {
-    char     name[NAME_SIZE];
+    char     name[SBS_NAME_SIZE];
     uint32_t num_inputs;
     uint32_t num_textures;
     uint32_t num_uniform_blocks;
+    uint32_t num_uniforms;
 };
 
 struct sbs_refl_input {
-    char     name[NAME_SIZE];
+    char     name[SBS_NAME_SIZE];
     int32_t  location;
-    char     semantic_name[NAME_SIZE];
+    char     semantic_name[SBS_NAME_SIZE];
     uint32_t semantic_index;
     uint32_t type;
 };
 
 struct sbs_refl_texture {
-    char     name[NAME_SIZE];
+    char     name[SBS_NAME_SIZE];
     uint32_t set;
     int32_t  binding;
     uint32_t type;
@@ -84,12 +96,20 @@ struct sbs_refl_texture {
 }; 
 
 struct sbs_refl_uniformblock {
-    char     name[NAME_SIZE];
-    char     inst_name[NAME_SIZE];
+    uint32_t num_uniforms;
+    char     name[SBS_NAME_SIZE];
+    char     inst_name[SBS_NAME_SIZE];
     uint32_t set;
     int32_t  binding;
     uint32_t size_bytes;
     bool     flattened;
+};
+
+struct sbs_refl_uniform {
+    char     name[SBS_NAME_SIZE];
+    uint32_t type;
+    uint32_t array_count;
+    uint32_t offset;
 };
 
 #pragma pack(pop)
@@ -111,6 +131,32 @@ static uint32_t get_lang(lang_type_t lang){
         return SBS_LANG_HLSL;
     }else if (lang == LANG_MSL){
         return SBS_LANG_MSL;
+    }
+
+    return 0;
+}
+
+static uint32_t get_uniform_type(uniform_type_t type){
+    if (type == uniform_type_t::FLOAT){
+        return SBS_UNIFORMTYPE_FLOAT;
+    }else if (type == uniform_type_t::FLOAT2){
+        return SBS_UNIFORMTYPE_FLOAT2;
+    }else if (type == uniform_type_t::FLOAT3){
+        return SBS_UNIFORMTYPE_FLOAT3;
+    }else if (type == uniform_type_t::FLOAT4){
+        return SBS_UNIFORMTYPE_FLOAT4;
+    }else if (type == uniform_type_t::INT){
+        return SBS_UNIFORMTYPE_INT;
+    }else if (type == uniform_type_t::INT2){
+        return SBS_UNIFORMTYPE_INT2;
+    }else if (type == uniform_type_t::INT3){
+        return SBS_UNIFORMTYPE_INT3;
+    }else if (type == uniform_type_t::INT4){
+        return SBS_UNIFORMTYPE_INT4;
+    }else if (type == uniform_type_t::MAT3){
+        return SBS_UNIFORMTYPE_MAT3;
+    }else if (type == uniform_type_t::MAT4){
+        return SBS_UNIFORMTYPE_MAT4;
     }
 
     return 0;
@@ -165,7 +211,7 @@ static uint32_t get_texture_samplertype(texture_samplertype_t basetype){
 }
 
 static void copy_name(char* dest, const std::string& source){
-    size_t n = NAME_SIZE - 1;
+    size_t n = SBS_NAME_SIZE - 1;
     strncpy(dest, source.c_str(), n);
     dest[n] = '\0';
 }
@@ -196,6 +242,10 @@ bool supershader::generate_sbs(const std::vector<spirvcross_t>& spirvcrossvec, c
     for (int i = 0; i < spirvcrossvec.size(); i++){
         size_t num_inputs = ( (spirvcrossvec[i].stage_type==STAGE_VERTEX)? spirvcrossvec[i].inputs.size() : 0 );
         size_t num_ubs = spirvcrossvec[i].uniform_blocks.size();
+        size_t num_us = 0;
+        for (int ub = 0; ub < num_ubs; ub++){
+            num_us += spirvcrossvec[i].uniform_blocks[ub].uniforms.size();
+        }
         size_t num_textures = spirvcrossvec[i].textures.size();
 
         const uint32_t code_size = spirvcrossvec[i].source.size();
@@ -203,8 +253,9 @@ bool supershader::generate_sbs(const std::vector<spirvcross_t>& spirvcrossvec, c
         const uint32_t refl_size = 
             sizeof(sbs_chunk_refl) + 
             sizeof(sbs_refl_input) * num_inputs +
+            sizeof(sbs_refl_texture) * num_textures +
             sizeof(sbs_refl_uniformblock) * num_ubs +
-            sizeof(sbs_refl_texture) * num_textures;
+            sizeof(sbs_refl_uniform) * num_us;
 
         const uint32_t stage_size = 
             sizeof(sbs_stage) +
@@ -232,6 +283,7 @@ bool supershader::generate_sbs(const std::vector<spirvcross_t>& spirvcrossvec, c
         copy_name(refl.name, args.output_basename);
         refl.num_inputs = num_inputs;
         refl.num_uniform_blocks = num_ubs;
+        refl.num_uniforms = num_us;
         refl.num_textures = num_textures;
 
         ofs.write((char *) &refl, sizeof(sbs_chunk_refl));
@@ -247,18 +299,6 @@ bool supershader::generate_sbs(const std::vector<spirvcross_t>& spirvcrossvec, c
             ofs.write((char *) &refl_input, sizeof(sbs_refl_input));
         }
 
-        for (int a = 0; a < num_ubs; a++){
-            sbs_refl_uniformblock refl_uniformbuffer;
-            copy_name(refl_uniformbuffer.name, spirvcrossvec[i].uniform_blocks[a].name);
-            copy_name(refl_uniformbuffer.inst_name, spirvcrossvec[i].uniform_blocks[a].inst_name);
-            refl_uniformbuffer.set = spirvcrossvec[i].uniform_blocks[a].set;
-            refl_uniformbuffer.binding = spirvcrossvec[i].uniform_blocks[a].binding;
-            refl_uniformbuffer.size_bytes = spirvcrossvec[i].uniform_blocks[a].size_bytes;
-            refl_uniformbuffer.flattened = spirvcrossvec[i].uniform_blocks[a].flattened;
-
-            ofs.write((char *) &refl_uniformbuffer, sizeof(sbs_refl_uniformblock));
-        }
-
         for (int a = 0; a < num_textures; a++){
             sbs_refl_texture refl_texture;
             copy_name(refl_texture.name, spirvcrossvec[i].textures[a].name.c_str());
@@ -270,6 +310,28 @@ bool supershader::generate_sbs(const std::vector<spirvcross_t>& spirvcrossvec, c
             ofs.write((char *) &refl_texture, sizeof(sbs_refl_texture));
         }
 
+        for (int a = 0; a < num_ubs; a++){
+            sbs_refl_uniformblock refl_uniformblock;
+            refl_uniformblock.num_uniforms = spirvcrossvec[i].uniform_blocks[a].uniforms.size();
+            copy_name(refl_uniformblock.name, spirvcrossvec[i].uniform_blocks[a].name);
+            copy_name(refl_uniformblock.inst_name, spirvcrossvec[i].uniform_blocks[a].inst_name);
+            refl_uniformblock.set = spirvcrossvec[i].uniform_blocks[a].set;
+            refl_uniformblock.binding = spirvcrossvec[i].uniform_blocks[a].binding;
+            refl_uniformblock.size_bytes = spirvcrossvec[i].uniform_blocks[a].size_bytes;
+            refl_uniformblock.flattened = spirvcrossvec[i].uniform_blocks[a].flattened;
+
+            ofs.write((char *) &refl_uniformblock, sizeof(sbs_refl_uniformblock));
+
+            for (int b = 0; b < refl_uniformblock.num_uniforms; b++){
+                sbs_refl_uniform refl_uniform;
+                copy_name(refl_uniform.name, spirvcrossvec[i].uniform_blocks[a].uniforms[b].name);
+                refl_uniform.type = get_uniform_type(spirvcrossvec[i].uniform_blocks[a].uniforms[b].type);
+                refl_uniform.array_count = spirvcrossvec[i].uniform_blocks[a].uniforms[b].array_count;
+                refl_uniform.offset = spirvcrossvec[i].uniform_blocks[a].uniforms[b].offset;
+
+                ofs.write((char *) &refl_uniform, sizeof(sbs_refl_uniform));
+            }
+        }
     }
 
     ofs.close();
