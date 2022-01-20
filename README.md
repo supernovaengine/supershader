@@ -88,7 +88,8 @@ Each block header is 8 bytes ( uint32_t fourcc code + uint32_t for size).
 ### Updates
 
 #### 1.3
-- Changed json and sbs file spec to support no flattened uniform blocks with float and int types inside
+- Changed json and sbs file spec to support uniform blocks with float and int types inside
+- Changed sbs file spec to support uniforms
 
 #### 1.2
 - Option to disable optimization
