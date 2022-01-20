@@ -99,7 +99,8 @@ jobs:
             -DSUPERSHADER_VERSION:STRING="${{ github.event.release.tag_name }}" \
             -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
             -G "${{ matrix.config.generators }}" \
-            -DCMAKE_INSTALL_PREFIX:PATH=instdir
+            -DCMAKE_INSTALL_PREFIX:PATH=instdir \
+            -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
 
       - name: Build
         shell: bash
