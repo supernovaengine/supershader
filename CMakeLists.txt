@@ -50,6 +50,10 @@ if (MSVC)
 	endif()
 endif()
 
+if (APPLE)
+    set(CMAKE_OSX_ARCHITECTURES "x86_64;arm64" CACHE STRING "Build architectures for Mac OS X")
+endif()
+
 include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/libs/argparse")
 include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/libs/json/single_include")
 
