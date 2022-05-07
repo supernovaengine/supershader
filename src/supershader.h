@@ -27,6 +27,11 @@ namespace supershader{
         PLATFORM_IOS
     };
 
+    enum output_type_t{
+        OUTPUT_JSON,
+        OUTPUT_BINARY
+    };
+
     struct args_t{
         bool isValid;
         
@@ -40,12 +45,12 @@ namespace supershader{
 
         std::string output_basename;
         std::string output_dir;
+        output_type_t output_type;
 
         std::string include_dir;
         std::vector<define_t> defines;
         bool list_includes;
 
-        bool json;
         bool optimization;
     };
 

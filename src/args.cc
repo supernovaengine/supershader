@@ -89,20 +89,20 @@ args_t supershader::parse_args(int argc, const char **argv){
     args.platform = PLATFORM_DEFAULT;
     args.output_basename = "";
     args.output_dir = "";
+    args.output_type = OUTPUT_JSON;
     args.include_dir = "";
     args.defines.clear();
     args.list_includes = false;
-    args.json = false;
     args.optimization = true;
 
     const char *vert_file = NULL;
     const char *frag_file = NULL;
     const char *lang = NULL;
     const char *output = NULL;
+    const char *output_type = NULL;
     const char *include_dir = NULL;
     const char *defines = NULL;
     int list_includes = 0;
-    int json = 0;
     int disable_optimization = 0;
 
     static const char *const usage[] = {
@@ -118,10 +118,10 @@ args_t supershader::parse_args(int argc, const char **argv){
         OPT_STRING('f', "frag", &frag_file, "fragment shader input file"),
         OPT_STRING('l', "lang", &lang, "<see below> shader language output"),
         OPT_STRING('o', "output", &output, "output file template (extension is ignored)"),
+        OPT_STRING('t', "output-type", &output_type, "output in json or binary shader format"),
         OPT_STRING('I', "include-dir", &include_dir, "include search directory"),
         OPT_STRING('D', "defines", &defines, "preprocessor definitions, seperated by ';'"),
         OPT_BOOLEAN('L', "list-includes", &list_includes, "print included files"),
-        OPT_BOOLEAN('J', "json", &json, "output in json and bare shader format"),
         OPT_BOOLEAN('d', "disable-optimization", &disable_optimization, "disable shader lang optimizations"),
         OPT_END(),
     };
@@ -144,7 +144,11 @@ args_t supershader::parse_args(int argc, const char **argv){
                                 "\n  - msl12_macos: Metal for MacOS"
                                 "\n  - msl21_macos: Metal for MacOS"
                                 "\n  - msl12_ios: Metal for iOS"
-                                "\n  - msl21_ios: Metal for iOS");
+                                "\n  - msl21_ios: Metal for iOS"
+                                "\n"
+                                "\nOutput format types:"
+                                "\n  - json"
+                                "\n  - binary (SBS file)");
     argc = argparse_parse(&argparse, argc, argv);
 
     args.isValid = true;
@@ -214,6 +218,20 @@ args_t supershader::parse_args(int argc, const char **argv){
         args.output_basename = "output";
     }
 
+    if (output_type){
+        std::string temptype = output_type;
+        if (temptype == "json"){
+            args.output_type = OUTPUT_JSON;
+        } else if (temptype == "binary"){
+            args.output_type = OUTPUT_BINARY;
+        }else{
+            fprintf( stderr, "Unsupported output type: %s\n", output_type);
+            args.isValid = false;
+        }
+    }else{
+        args.output_type = OUTPUT_JSON;
+    }
+
     if (include_dir){
         args.include_dir = include_dir;
     }
@@ -226,14 +244,9 @@ args_t supershader::parse_args(int argc, const char **argv){
         args.list_includes = true;
     }
 
-    if (json != 0){
-        args.json = true;
-    }
-
     if (disable_optimization != 0){
         args.optimization = false;
     }
-        
 
     return args;
 }

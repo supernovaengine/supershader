@@ -26,7 +26,7 @@ cmake --build $BUILD_DIR --config Release
 
 ### Usage
 ```bash
-./supershader --vert=shader.vert --frag=shader.frag ---defines "USE_UV=1; HAS_TEXTURE" --lang glsl330 --output shaderoutput --json
+./supershader --vert=shader.vert --frag=shader.frag ---defines "USE_UV=1; HAS_TEXTURE" --lang glsl330 --output shaderoutput
 ```
 
 #### Arguments
@@ -36,10 +36,10 @@ cmake --build $BUILD_DIR --config Release
     -f, --frag=<str>          fragment shader input file
     -l, --lang=<str>          <see below> shader language output
     -o, --output=<str>        output file template (extension is ignored)
+    -t, --output-type=<str>   output in json or binary shader format
     -I, --include-dir=<str>   include search directory
     -D, --defines=<str>       preprocessor definitions, seperated by ';'
     -L, --list-includes       print included files
-    -J, --json                output in json and bare shader format
 ```
 
 #### Current supported shader stages:
@@ -53,20 +53,24 @@ cmake --build $BUILD_DIR --config Release
 - hlsl4: D3D11
 - hlsl5: D3D11
 
+#### Output format types:
+- json
+- binary (SBS file)
+
 #### Output
-For default Supershader output format is .sbs binary file:
+For default Supershader output format is json with reflection info and bare shader output:
 
 ```bash
 ./supershader --vert=shader.vert --frag=shader.frag --output shaderoutput  --lang glsl330
 ```
-* Output: ```shaderoutput.sbs```
+* Output: ```shaderoutput_glsl.json```, ```shaderoutput_vs.glsl```, ```shaderoutput_fs.glsl```
 
-With ```--json``` argument we have reflection info in json and bare shader output:
+With ```--output-type=binary``` argument we have .sbs binary file:
 
 ```bash
-./supershader --vert=shader.vert --frag=shader.frag --output shaderoutput  --lang glsl330 --json
+./supershader --vert=shader.vert --frag=shader.frag --output shaderoutput  --lang glsl330 --output-type=binary
 ```
-* Output: ```shaderoutput_glsl.json```, ```shaderoutput_vs.glsl```, ```shaderoutput_fs.glsl```
+* Output: ```shaderoutput.sbs```
 
 
 ### SBS file format
@@ -86,6 +90,9 @@ Each block header is 8 bytes ( uint32_t fourcc code + uint32_t for size).
 
 
 ### Updates
+
+#### 1.4
+- Changed json to be default output type format
 
 #### 1.3
 - Changed json and sbs file spec to support uniform blocks with float and int types inside

@@ -39,10 +39,10 @@ int main(int argc, const char **argv){
 		return EXIT_FAILURE;
 	}
 
-	if (args.json){
+	if (args.output_type == OUTPUT_JSON){
 		if (!generate_json(spirvcrossvec, inputs, args))
 			return EXIT_FAILURE;
-	}else{
+	}else if (args.output_type == OUTPUT_BINARY){
 		if (!generate_sbs(spirvcrossvec, inputs, args))
 			return EXIT_FAILURE;
 	}
