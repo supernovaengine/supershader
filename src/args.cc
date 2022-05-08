@@ -141,10 +141,10 @@ args_t supershader::parse_args(int argc, const char **argv){
                                 "\n  - glsl300es: GLES3 / WebGL2"
                                 "\n  - hlsl4: D3D11"
                                 "\n  - hlsl5: D3D11"
-                                "\n  - msl12_macos: Metal for MacOS"
-                                "\n  - msl21_macos: Metal for MacOS"
-                                "\n  - msl12_ios: Metal for iOS"
-                                "\n  - msl21_ios: Metal for iOS"
+                                "\n  - msl12macos: Metal for MacOS"
+                                "\n  - msl21macos: Metal for MacOS"
+                                "\n  - msl12ios: Metal for iOS"
+                                "\n  - msl21ios: Metal for iOS"
                                 "\n"
                                 "\nOutput format types:"
                                 "\n  - json"
@@ -185,19 +185,19 @@ args_t supershader::parse_args(int argc, const char **argv){
         }else if (templang == "hlsl5"){
             args.lang = LANG_HLSL;
             args.version = 50;
-        }else if (templang == "msl12_macos"){
+        }else if (templang == "msl12macos"){
             args.lang = LANG_MSL;
             args.version = 10200;
             args.platform = PLATFORM_MACOS;
-        }else if (templang == "msl21_macos"){
+        }else if (templang == "msl21macos"){
             args.lang = LANG_MSL;
             args.version = 20100;
             args.platform = PLATFORM_MACOS;
-        }else if (templang == "msl12_ios"){
+        }else if (templang == "msl12ios"){
             args.lang = LANG_MSL;
             args.version = 10200;
             args.platform = PLATFORM_IOS;
-        }else if (templang == "msl21_ios"){
+        }else if (templang == "msl21ios"){
             args.lang = LANG_MSL;
             args.version = 20100;
             args.platform = PLATFORM_IOS;
