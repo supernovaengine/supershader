@@ -52,6 +52,10 @@ cmake --build $BUILD_DIR --config Release
 - glsl300es: GLES3 / WebGL2
 - hlsl4: D3D11
 - hlsl5: D3D11
+- msl12macos: Metal for MacOS
+- msl21macos: Metal for MacOS
+- msl12ios: Metal for iOS
+- msl21ios: Metal for iOS
 
 #### Output format types:
 - json
