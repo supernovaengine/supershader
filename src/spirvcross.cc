@@ -1,5 +1,5 @@
 //
-// (c) 2021 Eduardo Doria.
+// (c) 2024 Eduardo Doria.
 //
 
 #include "supershader.h"
@@ -11,6 +11,26 @@
 #include "spirv_parser.hpp"
 
 #include <memory>
+
+//
+// From https://github.com/floooh/sokol-tools
+//
+// workaround for Compiler.comparison_ids being protected
+class UnprotectedCompiler: spirv_cross::Compiler {
+public:
+    bool is_comparison_sampler(const spirv_cross::SPIRType &type, uint32_t id) {
+        if (type.basetype == spirv_cross::SPIRType::Sampler) {
+            return comparison_ids.count(id) > 0;
+        }
+        return 0;
+    }
+    bool is_used_as_depth_texture(const spirv_cross::SPIRType &type, uint32_t id) {
+        if (type.basetype == spirv_cross::SPIRType::Image) {
+            return comparison_ids.count(id) > 0;
+        }
+        return 0;
+    }
+};
 
 using namespace supershader;
 
@@ -88,20 +108,27 @@ static texture_type_t spirtype_to_image_type(const spirv_cross::SPIRType& type) 
 }
 
 static texture_samplertype_t spirtype_to_image_samplertype(const spirv_cross::SPIRType& type) {
-    switch (type.basetype) {
-        case spirv_cross::SPIRType::Int:
-        case spirv_cross::SPIRType::Short:
-        case spirv_cross::SPIRType::SByte:
-            return texture_samplertype_t::SINT;
-        case spirv_cross::SPIRType::UInt:
-        case spirv_cross::SPIRType::UShort:
-        case spirv_cross::SPIRType::UByte:
-            return texture_samplertype_t::UINT;
-        default:
-            return texture_samplertype_t::FLOAT;
+    if (type.image.depth) {
+        return texture_samplertype_t::DEPTH;
+    } else {
+        switch (type.basetype) {
+            case spirv_cross::SPIRType::Int:
+            case spirv_cross::SPIRType::Short:
+            case spirv_cross::SPIRType::SByte:
+                return texture_samplertype_t::SINT;
+            case spirv_cross::SPIRType::UInt:
+            case spirv_cross::SPIRType::UShort:
+            case spirv_cross::SPIRType::UByte:
+                return texture_samplertype_t::UINT;
+            default:
+                return texture_samplertype_t::FLOAT;
+        }
     }
 }
 
+//
+// From https://github.com/floooh/sokol-tools
+//
 static bool can_flatten_uniform_block(const spirv_cross::Compiler* compiler, const spirv_cross::Resource& ub_res) {
     const spirv_cross::SPIRType& ub_type = compiler->get_type(ub_res.base_type_id);
     spirv_cross::SPIRType::BaseType basic_type = spirv_cross::SPIRType::Unknown;
@@ -120,7 +147,57 @@ static bool can_flatten_uniform_block(const spirv_cross::Compiler* compiler, con
     return true;
 }
 
-static bool validate_uniform_blocks(const spirv_cross::Compiler* compiler, const spirv_cross::ShaderResources& res, const input_t& input) {
+//
+// From https://github.com/floooh/sokol-tools
+//
+static void flatten_uniform_blocks(spirv_cross::CompilerGLSL* compiler) {
+    /* this flattens each uniform block into a vec4 array, in WebGL/GLES2 this
+        allows more efficient uniform updates
+    */
+    spirv_cross::ShaderResources res = compiler->get_shader_resources();
+    for (const spirv_cross::Resource& ub_res: res.uniform_buffers) {
+        if (can_flatten_uniform_block(compiler, ub_res)){
+            compiler->flatten_buffer_block(ub_res.id);
+        }
+    }
+}
+
+//
+// From https://github.com/floooh/sokol-tools
+//
+static void to_combined_image_samplers(spirv_cross::CompilerGLSL* compiler) {
+    compiler->build_combined_image_samplers();
+    // give the combined samplers new names
+    uint32_t binding = 0;
+    for (auto& remap: compiler->get_combined_image_samplers()) {
+        const std::string img_name = compiler->get_name(remap.image_id);
+        const std::string smp_name = compiler->get_name(remap.sampler_id);
+        compiler->set_name(remap.combined_id, img_name + "_" + smp_name);
+        compiler->set_decoration(remap.combined_id, spv::DecorationBinding, binding++);
+    }
+}
+
+//
+// From https://github.com/floooh/sokol-tools
+//
+static void fix_ub_matrix_force_colmajor(spirv_cross::Compiler* compiler) {
+    /* go though all uniform block matrixes and decorate them with
+        column-major, this is needed in the HLSL backend to fix the
+        multiplication order
+    */
+    spirv_cross::ShaderResources res = compiler->get_shader_resources();
+    for (const spirv_cross::Resource& ub_res: res.uniform_buffers) {
+        const spirv_cross::SPIRType& ub_type = compiler->get_type(ub_res.base_type_id);
+        for (int m_index = 0; m_index < (int)ub_type.member_types.size(); m_index++) {
+            const spirv_cross::SPIRType& m_type = compiler->get_type(ub_type.member_types[m_index]);
+            if ((m_type.basetype == spirv_cross::SPIRType::Float) && (m_type.vecsize > 1) && (m_type.columns > 1)) {
+                compiler->set_member_decoration(ub_res.base_type_id, m_index, spv::DecorationColMajor);
+            }
+        }
+    }
+}
+
+static bool validate_uniform_blocks_and_separate_image_samplers(const spirv_cross::Compiler* compiler, const spirv_cross::ShaderResources& res, const input_t& input) {
     for (const spirv_cross::Resource& ub_res: res.uniform_buffers) {
         const spirv_cross::SPIRType& ub_type = compiler->get_type(ub_res.base_type_id);
         for (int m_index = 0; m_index < (int)ub_type.member_types.size(); m_index++) {
@@ -140,6 +217,10 @@ static bool validate_uniform_blocks(const spirv_cross::Compiler* compiler, const
                 }
             }
         }
+    }
+    if (res.sampled_images.size() > 0) {
+        fprintf(stderr, "%s: combined image sampler '%s' detected, please use separate textures and samplers\n", input.filename.c_str(), res.sampled_images[0].name.c_str());
+        return false;
     }
     return true;
 }
@@ -225,8 +306,8 @@ static bool parse_reflection(spirvcross_t& spirvcross, const spirv_cross::Compil
         spirvcross.uniform_blocks.push_back(ub);
     }
 
-    // images
-    for (const spirv_cross::Resource& img_res: shd_resources.sampled_images) {
+    // (separate) images
+    for (const spirv_cross::Resource& img_res: shd_resources.separate_images) {
         s_texture_t image;
 
         const spirv_cross::SPIRType& img_type = compiler->get_type(img_res.type_id);
@@ -235,10 +316,56 @@ static bool parse_reflection(spirvcross_t& spirvcross, const spirv_cross::Compil
         image.set = compiler->get_decoration(img_res.id, spv::DecorationDescriptorSet);
         image.binding = compiler->get_decoration(img_res.id, spv::DecorationBinding);
         image.type = spirtype_to_image_type(img_type);
-        image.sampler_type = spirtype_to_image_samplertype(compiler->get_type(img_type.image.type));
+        if (((UnprotectedCompiler*)&compiler)->is_used_as_depth_texture(img_type, img_res.id)) {
+            image.sampler_type = texture_samplertype_t::DEPTH;
+        } else {
+            image.sampler_type = spirtype_to_image_samplertype(compiler->get_type(img_type.image.type));
+        }
 
         spirvcross.textures.push_back(image);
     }
+
+    // (separate) samplers
+    for (const spirv_cross::Resource& smp_res: shd_resources.separate_samplers) {
+        s_sampler_t sampler;
+
+        const spirv_cross::SPIRType& smp_type = compiler->get_type(smp_res.type_id);
+
+        sampler.name = smp_res.name;
+        sampler.binding = compiler->get_decoration(smp_res.id, spv::DecorationBinding);
+        if (((UnprotectedCompiler*)&compiler)->is_comparison_sampler(smp_type, smp_res.id)) {
+            sampler.type = sampler_type_t::COMPARISON;
+        } else {
+            sampler.type = sampler_type_t::FILTERING;
+        }
+
+        spirvcross.samplers.push_back(sampler);
+    }
+
+    // combined image samplers
+    for (auto& img_smp_res: compiler->get_combined_image_samplers()) {
+        s_texture_sampler_t img_smp;
+        img_smp.binding = compiler->get_decoration(img_smp_res.combined_id, spv::DecorationBinding);
+        img_smp.name = compiler->get_name(img_smp_res.combined_id);
+        img_smp.texture_name = compiler->get_name(img_smp_res.image_id);
+        img_smp.sampler_name = compiler->get_name(img_smp_res.sampler_id);
+        spirvcross.texture_samplers.push_back(img_smp);
+    }
+
+    // patch textures with overridden image-sample-types
+    //for (auto& img: spirvcross.textures) {
+    //    const auto* tag = snippet.lookup_image_sample_type_tag(img.name);
+    //    if (tag) {
+    //        img.sample_type = tag->type;
+    //    }
+    //}
+    // patch samplers with overridden sampler-types
+    //for (auto& smp: spirvcross.samplers) {
+    //    const auto* tag = snippet.lookup_sampler_type_tag(smp.name);
+    //    if (tag) {
+    //        smp.type = tag->type;
+    //    }
+    //}
 
     return true;
 }
@@ -246,49 +373,43 @@ static bool parse_reflection(spirvcross_t& spirvcross, const spirv_cross::Compil
 //
 // From https://github.com/floooh/sokol-tools
 //
-/*
-    for "Vulkan convention", fragment shader uniform block bindings live in the same
-    descriptor set as vertex shader uniform blocks, but are offset by 4:
-
-    set=0, binding=0..3:    vertex shader uniform blocks
-    set=0, binding=4..7:    fragment shader uniform blocks
-*/
-static const uint32_t vk_fs_ub_binding_offset = 4;
-
-static void fix_bind_slots(spirv_cross::Compiler* compiler, stage_type_t stage, bool is_vulkan) {
-    /*
-        This overrides all bind slots like this:
-
-        Target is not WebGPU:
-            - both vertex shader and fragment shader:
-                - uniform blocks go into set=0 and start at binding=0
-                - images go into set=1 and start at binding=0
-        Target is WebGPU:
-            - uniform blocks go into set=0
-                - vertex shader uniform blocks start at binding=0
-                - fragment shader uniform blocks start at binding=1
-            - vertex shader images go into set=1, start at binding=0
-            - fragment shader images go into set=2, start at binding=0
-
-        NOTE that any existing binding definitions are always overwritten,
-        this differs from previous behaviour which checked if explicit
-        bindings existed.
-    */
+static void fix_bind_slots(spirv_cross::Compiler* compiler) {
     spirv_cross::ShaderResources res = compiler->get_shader_resources();
-    uint32_t ub_slot = 0;
-    if (is_vulkan) {
-        ub_slot = (stage == STAGE_VERTEX) ? 0 : vk_fs_ub_binding_offset;
-    }
-    for (const spirv_cross::Resource& ub_res: res.uniform_buffers) {
-        compiler->set_decoration(ub_res.id, spv::DecorationDescriptorSet, 0);
-        compiler->set_decoration(ub_res.id, spv::DecorationBinding, ub_slot++);
+
+    // uniform buffers
+    {
+        uint32_t binding = 0;
+        for (const spirv_cross::Resource& res: res.uniform_buffers) {
+            compiler->set_decoration(res.id, spv::DecorationDescriptorSet, 0);
+            compiler->set_decoration(res.id, spv::DecorationBinding, binding++);
+        }
     }
 
-    uint32_t img_slot = 0;
-    uint32_t img_set = (stage == STAGE_VERTEX) ? 1 : 2;
-    for (const spirv_cross::Resource& img_res: res.sampled_images) {
-        compiler->set_decoration(img_res.id, spv::DecorationDescriptorSet, img_set);
-        compiler->set_decoration(img_res.id, spv::DecorationBinding, img_slot++);
+    // combined image samplers
+    {
+        uint32_t binding = 0;
+        for (const spirv_cross::Resource& res: res.sampled_images) {
+            compiler->set_decoration(res.id, spv::DecorationDescriptorSet, 0);
+            compiler->set_decoration(res.id, spv::DecorationBinding, binding++);
+        }
+    }
+
+    // separate images
+    {
+        uint32_t binding = 0;
+        for (const spirv_cross::Resource& res: res.separate_images) {
+            compiler->set_decoration(res.id, spv::DecorationDescriptorSet, 0);
+            compiler->set_decoration(res.id, spv::DecorationBinding, binding++);
+        }
+    }
+
+    // separate samplers
+    {
+        uint32_t binding = 0;
+        for (const spirv_cross::Resource& res: res.separate_samplers) {
+            compiler->set_decoration(res.id, spv::DecorationDescriptorSet, 0);
+            compiler->set_decoration(res.id, spv::DecorationBinding, binding++);
+        }
     }
 }
 
@@ -368,21 +489,20 @@ bool supershader::compile_to_lang(std::vector<spirvcross_t>& spirvcrossvec, cons
             }
         }
 
-        fix_bind_slots(compiler.get(), inputs[i].stage_type, false);
+        fix_bind_slots(compiler.get());
 
         spirv_cross::ShaderResources res = compiler->get_shader_resources();
-        if (!validate_uniform_blocks(compiler.get(), res, inputs[i]))
+        if (!validate_uniform_blocks_and_separate_image_samplers(compiler.get(), res, inputs[i]))
             return false;
 
         // GL/GLES try to flatten UBs if attributes are same type to use only one glUniform4fv call
         // TODO: Not for Vulkan
         if (args.lang == LANG_GLSL) {
-            for (const spirv_cross::Resource& ub_res: res.uniform_buffers) {
-                if (can_flatten_uniform_block(compiler.get(), ub_res)){
-                    compiler->flatten_buffer_block(ub_res.id);
-                }
-            }
+            flatten_uniform_blocks(compiler.get());
+            to_combined_image_samplers(compiler.get());
         }
+
+        fix_ub_matrix_force_colmajor(compiler.get());
         
         spirvcrossvec[i].source = compiler->compile();
 

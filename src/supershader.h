@@ -1,5 +1,5 @@
 //
-// (c) 2021 Eduardo Doria.
+// (c) 2024 Eduardo Doria.
 //
 
 #ifndef supershader_h
@@ -192,6 +192,15 @@ namespace supershader{
         FLOAT,
         SINT,
         UINT,
+        DEPTH,
+        //UNFILTERABLE_FLOAT,
+        INVALID
+    };
+
+    enum class sampler_type_t {
+        FILTERING,
+        COMPARISON,
+        //NONFILTERING,
         INVALID
     };
 
@@ -228,6 +237,19 @@ namespace supershader{
         texture_samplertype_t sampler_type = texture_samplertype_t::INVALID;
     };
 
+    struct s_sampler_t {
+        std::string name;
+        uint32_t binding;
+        sampler_type_t type = sampler_type_t::INVALID;
+    };
+
+    struct s_texture_sampler_t {
+        std::string name;
+        std::string texture_name;
+        std::string sampler_name;
+        uint32_t binding;
+    };
+
     struct spirvcross_t{
         stage_type_t stage_type;
         std::string entry_point;
@@ -238,6 +260,8 @@ namespace supershader{
         std::vector<s_attr_t> outputs;
         std::vector<s_uniform_block_t> uniform_blocks;
         std::vector<s_texture_t> textures;
+        std::vector<s_sampler_t> samplers;
+        std::vector<s_texture_sampler_t> texture_samplers;
     };
 
 

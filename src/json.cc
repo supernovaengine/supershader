@@ -1,5 +1,5 @@
 //
-// (c) 2021 Eduardo Doria.
+// (c) 2024 Eduardo Doria.
 //
 
 #include "supershader.h"
@@ -131,7 +131,20 @@ static std::string texture_samplertype_to_string(texture_samplertype_t type){
         return "uint";
     }else if (type == texture_samplertype_t::FLOAT){
         return "float";
+    }else if (type == texture_samplertype_t::DEPTH){
+        return "depth";
     }else if (type == texture_samplertype_t::INVALID){
+        return "INVALID";
+    }
+    return "";
+}
+
+static std::string sampler_type_to_string(sampler_type_t type){
+    if (type == sampler_type_t::FILTERING){
+        return "filtering";
+    }else if (type == sampler_type_t::COMPARISON){
+        return "comparison";
+    }else if (type == sampler_type_t::INVALID){
         return "INVALID";
     }
     return "";
@@ -181,6 +194,27 @@ bool supershader::generate_json(const std::vector<spirvcross_t>& spirvcrossvec, 
             tj["sampler_type"] = texture_samplertype_to_string(t.sampler_type);
 
             sj["textures"].push_back(tj);
+        }
+
+        for (int is = 0; is < spirvcrossvec[i].samplers.size(); is++){
+            s_sampler_t sm = spirvcrossvec[i].samplers[is];
+            json smj;
+            smj["name"] = sm.name;
+            smj["binding"] = sm.binding;
+            smj["type"] = sampler_type_to_string(sm.type);
+
+            sj["samplers"].push_back(smj);
+        }
+
+        for (int its = 0; its < spirvcrossvec[i].texture_samplers.size(); its++){
+            s_texture_sampler_t tsm = spirvcrossvec[i].texture_samplers[its];
+            json tsmj;
+            tsmj["name"] = tsm.name;
+            tsmj["texture_name"] = tsm.texture_name;
+            tsmj["sampler_name"] = tsm.sampler_name;
+            tsmj["binding"] = tsm.binding;
+
+            sj["texture_samplers"].push_back(tsmj);
         }
 
         for (int iub = 0; iub < spirvcrossvec[i].uniform_blocks.size(); iub++){
