@@ -14,8 +14,7 @@ add_executable(supershader
 
 target_link_libraries(supershader PRIVATE
         argparse
-        glslang 
-        OGLCompiler 
+        glslang
         OSDependent 
         SPIRV 
         SPVRemapper 
@@ -52,7 +51,7 @@ endif()
 set_target_properties(
         supershader
         PROPERTIES
-        CXX_STANDARD 11
+        CXX_STANDARD 17
 )
 
 install(TARGETS supershader 

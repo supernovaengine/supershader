@@ -1,4 +1,4 @@
-# Copyright (C) 2020 The Khronos Group Inc.
+# Copyright (C) 2020-2023 The Khronos Group Inc.
 #
 # All rights reserved.
 #
@@ -53,36 +53,15 @@ $(eval $(call gen_glslang_build_info_h))
 
 GLSLANG_OS_FLAGS := -DGLSLANG_OSINCLUDE_UNIX
 # AMD and NV extensions are turned on by default in upstream Glslang.
-GLSLANG_DEFINES:= -DAMD_EXTENSIONS -DNV_EXTENSIONS -DENABLE_HLSL $(GLSLANG_OS_FLAGS)
+GLSLANG_DEFINES:= -DENABLE_HLSL $(GLSLANG_OS_FLAGS)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE:=OSDependent
-LOCAL_CXXFLAGS:=-std=c++11 -fno-exceptions -fno-rtti $(GLSLANG_DEFINES)
+LOCAL_CXXFLAGS:=-std=c++17 -fno-exceptions -fno-rtti $(GLSLANG_DEFINES)
 LOCAL_EXPORT_C_INCLUDES:=$(LOCAL_PATH)
 LOCAL_SRC_FILES:=glslang/OSDependent/Unix/ossource.cpp
 LOCAL_C_INCLUDES:=$(LOCAL_PATH) $(LOCAL_PATH)/glslang/OSDependent/Unix/
 LOCAL_EXPORT_C_INCLUDES:=$(LOCAL_PATH)/glslang/OSDependent/Unix/
-include $(BUILD_STATIC_LIBRARY)
-
-include $(CLEAR_VARS)
-LOCAL_MODULE:=OGLCompiler
-LOCAL_CXXFLAGS:=-std=c++11 -fno-exceptions -fno-rtti $(GLSLANG_DEFINES)
-LOCAL_EXPORT_C_INCLUDES:=$(LOCAL_PATH)
-LOCAL_SRC_FILES:=OGLCompilersDLL/InitializeDll.cpp
-LOCAL_C_INCLUDES:=$(LOCAL_PATH)/OGLCompiler
-LOCAL_STATIC_LIBRARIES:=OSDependent
-include $(BUILD_STATIC_LIBRARY)
-
-# Build the stubbed HLSL library.
-# The HLSL source is now directly referenced by the glslang static library
-# instead.
-include $(CLEAR_VARS)
-LOCAL_MODULE:=HLSL
-LOCAL_CXXFLAGS:=-std=c++11 -fno-exceptions -fno-rtti $(GLSLANG_DEFINES)
-LOCAL_SRC_FILES:= \
-	hlsl/stub.cpp
-LOCAL_C_INCLUDES:=$(LOCAL_PATH) \
-	$(LOCAL_PATH)/glslang/HLSL
 include $(BUILD_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
@@ -93,9 +72,10 @@ $(LOCAL_PATH)/glslang/MachineIndependent/ShaderLang.cpp: \
 	$(GLSLANG_BUILD_INFO_H)
 
 LOCAL_MODULE:=glslang
-LOCAL_CXXFLAGS:=-std=c++11 -fno-exceptions -fno-rtti $(GLSLANG_DEFINES)
+LOCAL_CXXFLAGS:=-std=c++17 -fno-exceptions -fno-rtti $(GLSLANG_DEFINES)
 LOCAL_EXPORT_C_INCLUDES:=$(LOCAL_PATH)
 LOCAL_SRC_FILES:= \
+		glslang/CInterface/glslang_c_interface.cpp \
 		glslang/GenericCodeGen/CodeGen.cpp \
 		glslang/GenericCodeGen/Link.cpp \
 		glslang/HLSL/hlslAttributes.cpp \
@@ -137,7 +117,7 @@ LOCAL_C_INCLUDES:=$(LOCAL_PATH) \
 	$(LOCAL_PATH)/glslang/MachineIndependent \
 	$(GLSLANG_GENERATED_INCLUDEDIR) \
 	$(GLSLANG_OUT_PATH)
-LOCAL_STATIC_LIBRARIES:=OSDependent OGLCompiler HLSL
+LOCAL_STATIC_LIBRARIES:=OSDependent
 include $(BUILD_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
@@ -147,8 +127,9 @@ $(LOCAL_PATH)/SPIRV/GlslangToSpv.cpp: \
 	$(GLSLANG_BUILD_INFO_H)
 
 LOCAL_MODULE:=SPIRV
-LOCAL_CXXFLAGS:=-std=c++11 -fno-exceptions -fno-rtti -Werror $(GLSLANG_DEFINES)
+LOCAL_CXXFLAGS:=-std=c++17 -fno-exceptions -fno-rtti -Werror $(GLSLANG_DEFINES)
 LOCAL_SRC_FILES:= \
+	SPIRV/CInterface/spirv_c_interface.cpp \
 	SPIRV/GlslangToSpv.cpp \
 	SPIRV/InReadableOrder.cpp \
 	SPIRV/Logger.cpp \

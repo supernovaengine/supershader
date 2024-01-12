@@ -146,37 +146,6 @@ static void add_defines(glslang::TShader* shader, const args_t& args, std::strin
 // Start modified part of SpvTools.cpp/SpirvToolsTransform to work with WEBGL1 and HLSL shaders
 // Check this if changed glslang version
 //
-spv_target_env MapToSpirvToolsEnv(const glslang::SpvVersion& spvVersion, spv::SpvBuildLogger* logger)
-{
-    switch (spvVersion.vulkan) {
-    case glslang::EShTargetVulkan_1_0:
-        return spv_target_env::SPV_ENV_VULKAN_1_0;
-    case glslang::EShTargetVulkan_1_1:
-        switch (spvVersion.spv) {
-        case glslang::EShTargetSpv_1_0:
-        case glslang::EShTargetSpv_1_1:
-        case glslang::EShTargetSpv_1_2:
-        case glslang::EShTargetSpv_1_3:
-            return spv_target_env::SPV_ENV_VULKAN_1_1;
-        case glslang::EShTargetSpv_1_4:
-            return spv_target_env::SPV_ENV_VULKAN_1_1_SPIRV_1_4;
-        default:
-            logger->missingFunctionality("Target version for SPIRV-Tools validator");
-            return spv_target_env::SPV_ENV_VULKAN_1_1;
-        }
-    case glslang::EShTargetVulkan_1_2:
-        return spv_target_env::SPV_ENV_VULKAN_1_2;
-    default:
-        break;
-    }
-
-    if (spvVersion.openGl > 0)
-        return spv_target_env::SPV_ENV_OPENGL_4_5;
-
-    logger->missingFunctionality("Target version for SPIRV-Tools validator");
-    return spv_target_env::SPV_ENV_UNIVERSAL_1_0;
-}
-
 void OptimizerMesssageConsumer(spv_message_level_t level, const char *source,
         const spv_position_t &position, const char *message)
 {
@@ -251,6 +220,7 @@ void spirv_optimize(const glslang::TIntermediate& intermediate, std::vector<unsi
     optimizer.RegisterPass(spvtools::CreateInterpolateFixupPass());
     if (options->optimizeSize) {
         optimizer.RegisterPass(spvtools::CreateRedundancyEliminationPass());
+        optimizer.RegisterPass(spvtools::CreateEliminateDeadInputComponentsSafePass());
     }
     optimizer.RegisterPass(spvtools::CreateAggressiveDCEPass());
     optimizer.RegisterPass(spvtools::CreateCFGCleanupPass());
@@ -480,6 +450,15 @@ const TBuiltInResource DefaultTBuiltInResource = {
     /* .maxTaskWorkGroupSizeY_NV = */ 1,
     /* .maxTaskWorkGroupSizeZ_NV = */ 1,
     /* .maxMeshViewCountNV = */ 4,
+    /* .maxMeshOutputVerticesEXT = */ 256,
+    /* .maxMeshOutputPrimitivesEXT = */ 256,
+    /* .maxMeshWorkGroupSizeX_EXT = */ 128,
+    /* .maxMeshWorkGroupSizeY_EXT = */ 128,
+    /* .maxMeshWorkGroupSizeZ_EXT = */ 128,
+    /* .maxTaskWorkGroupSizeX_EXT = */ 128,
+    /* .maxTaskWorkGroupSizeY_EXT = */ 128,
+    /* .maxTaskWorkGroupSizeZ_EXT = */ 128,
+    /* .maxMeshViewCountEXT = */ 4,
     /* .maxDualSourceDrawBuffersEXT = */ 1,
 
     /* .limits = */ {
