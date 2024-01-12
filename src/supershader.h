@@ -239,6 +239,7 @@ namespace supershader{
 
     struct s_sampler_t {
         std::string name;
+        uint32_t set;
         uint32_t binding;
         sampler_type_t type = sampler_type_t::INVALID;
     };

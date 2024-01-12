@@ -200,6 +200,7 @@ bool supershader::generate_json(const std::vector<spirvcross_t>& spirvcrossvec, 
             s_sampler_t sm = spirvcrossvec[i].samplers[is];
             json smj;
             smj["name"] = sm.name;
+            smj["set"] = sm.set;
             smj["binding"] = sm.binding;
             smj["type"] = sampler_type_to_string(sm.type);
 

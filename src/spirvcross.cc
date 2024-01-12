@@ -316,7 +316,7 @@ static bool parse_reflection(spirvcross_t& spirvcross, const spirv_cross::Compil
         image.set = compiler->get_decoration(img_res.id, spv::DecorationDescriptorSet);
         image.binding = compiler->get_decoration(img_res.id, spv::DecorationBinding);
         image.type = spirtype_to_image_type(img_type);
-        if (((UnprotectedCompiler*)&compiler)->is_used_as_depth_texture(img_type, img_res.id)) {
+        if (((UnprotectedCompiler*)compiler)->is_used_as_depth_texture(img_type, img_res.id)) {
             image.sampler_type = texture_samplertype_t::DEPTH;
         } else {
             image.sampler_type = spirtype_to_image_samplertype(compiler->get_type(img_type.image.type));
@@ -332,8 +332,9 @@ static bool parse_reflection(spirvcross_t& spirvcross, const spirv_cross::Compil
         const spirv_cross::SPIRType& smp_type = compiler->get_type(smp_res.type_id);
 
         sampler.name = smp_res.name;
+        sampler.set = compiler->get_decoration(smp_res.id, spv::DecorationDescriptorSet);
         sampler.binding = compiler->get_decoration(smp_res.id, spv::DecorationBinding);
-        if (((UnprotectedCompiler*)&compiler)->is_comparison_sampler(smp_type, smp_res.id)) {
+        if (((UnprotectedCompiler*)compiler)->is_comparison_sampler(smp_type, smp_res.id)) {
             sampler.type = sampler_type_t::COMPARISON;
         } else {
             sampler.type = sampler_type_t::FILTERING;
@@ -352,65 +353,7 @@ static bool parse_reflection(spirvcross_t& spirvcross, const spirv_cross::Compil
         spirvcross.texture_samplers.push_back(img_smp);
     }
 
-    // patch textures with overridden image-sample-types
-    //for (auto& img: spirvcross.textures) {
-    //    const auto* tag = snippet.lookup_image_sample_type_tag(img.name);
-    //    if (tag) {
-    //        img.sample_type = tag->type;
-    //    }
-    //}
-    // patch samplers with overridden sampler-types
-    //for (auto& smp: spirvcross.samplers) {
-    //    const auto* tag = snippet.lookup_sampler_type_tag(smp.name);
-    //    if (tag) {
-    //        smp.type = tag->type;
-    //    }
-    //}
-
     return true;
-}
-
-//
-// From https://github.com/floooh/sokol-tools
-//
-static void fix_bind_slots(spirv_cross::Compiler* compiler) {
-    spirv_cross::ShaderResources res = compiler->get_shader_resources();
-
-    // uniform buffers
-    {
-        uint32_t binding = 0;
-        for (const spirv_cross::Resource& res: res.uniform_buffers) {
-            compiler->set_decoration(res.id, spv::DecorationDescriptorSet, 0);
-            compiler->set_decoration(res.id, spv::DecorationBinding, binding++);
-        }
-    }
-
-    // combined image samplers
-    {
-        uint32_t binding = 0;
-        for (const spirv_cross::Resource& res: res.sampled_images) {
-            compiler->set_decoration(res.id, spv::DecorationDescriptorSet, 0);
-            compiler->set_decoration(res.id, spv::DecorationBinding, binding++);
-        }
-    }
-
-    // separate images
-    {
-        uint32_t binding = 0;
-        for (const spirv_cross::Resource& res: res.separate_images) {
-            compiler->set_decoration(res.id, spv::DecorationDescriptorSet, 0);
-            compiler->set_decoration(res.id, spv::DecorationBinding, binding++);
-        }
-    }
-
-    // separate samplers
-    {
-        uint32_t binding = 0;
-        for (const spirv_cross::Resource& res: res.separate_samplers) {
-            compiler->set_decoration(res.id, spv::DecorationDescriptorSet, 0);
-            compiler->set_decoration(res.id, spv::DecorationBinding, binding++);
-        }
-    }
 }
 
 bool supershader::compile_to_lang(std::vector<spirvcross_t>& spirvcrossvec, const std::vector<spirv_t>& spirvvec, const std::vector<input_t>& inputs, const args_t& args){
@@ -488,8 +431,6 @@ bool supershader::compile_to_lang(std::vector<spirvcross_t>& spirvcrossvec, cons
                 hlsl_compiler->add_vertex_attribute_remap(remap);
             }
         }
-
-        fix_bind_slots(compiler.get());
 
         spirv_cross::ShaderResources res = compiler->get_shader_resources();
         if (!validate_uniform_blocks_and_separate_image_samplers(compiler.get(), res, inputs[i]))
