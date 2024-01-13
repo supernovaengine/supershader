@@ -289,7 +289,7 @@ bool supershader::compile_to_spirv(std::vector<spirv_t>& spirvvec, const std::ve
         const char* sourcesNames[1] = { inputs[i].filename.c_str() };
 
         shader->setStringsWithLengthsAndNames(sources, sourcesLen, sourcesNames, 1);
-        shader->setEnvInput(glslang::EShSourceGlsl, stage, glslang::EShClientOpenGL, default_version);
+        shader->setEnvInput(glslang::EShSourceGlsl, stage, glslang::EShClientVulkan, default_version);
         shader->setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_0);
         shader->setEnvTarget(glslang::EshTargetSpv, glslang::EShTargetSpv_1_0);
 
