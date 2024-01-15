@@ -11,8 +11,8 @@ using namespace supershader;
 
 #define makefourcc(_a, _b, _c, _d) (((uint32_t)(_a) | ((uint32_t)(_b) << 8) | ((uint32_t)(_c) << 16) | ((uint32_t)(_d) << 24)))
 
-#define SBS_VERSION 100
-#define SBS_NAME_SIZE 32
+#define SBS_VERSION 110
+#define SBS_NAME_SIZE 64
 
 #pragma pack(push, 1)
 
@@ -54,9 +54,13 @@ using namespace supershader;
 #define SBS_TEXTURE_CUBE        makefourcc('C', 'U', 'B', 'E')
 #define SBS_TEXTURE_ARRAY       makefourcc('A', 'R', 'R', 'A')
 
-#define SBS_SAMPLERTYPE_FLOAT   makefourcc('T', 'F', 'L', 'T')
-#define SBS_SAMPLERTYPE_SINT    makefourcc('T', 'I', 'N', 'T')
-#define SBS_SAMPLERTYPE_UINT    makefourcc('T', 'U', 'I', 'T')
+#define SBS_TEXTURE_SAMPLERTYPE_FLOAT   makefourcc('T', 'F', 'L', 'T')
+#define SBS_TEXTURE_SAMPLERTYPE_SINT    makefourcc('T', 'I', 'N', 'T')
+#define SBS_TEXTURE_SAMPLERTYPE_UINT    makefourcc('T', 'U', 'I', 'T')
+#define SBS_TEXTURE_SAMPLERTYPE_DEPTH   makefourcc('T', 'D', 'P', 'H')
+
+#define SBS_SAMPLERTYPE_FILTERING     makefourcc('S', 'F', 'I', 'L')
+#define SBS_SAMPLERTYPE_COMPARISON    makefourcc('S', 'C', 'O', 'M')
 
 struct sbs_chunk {
     uint32_t sbs_version;
@@ -75,6 +79,8 @@ struct sbs_chunk_refl {
     char     name[SBS_NAME_SIZE];
     uint32_t num_inputs;
     uint32_t num_textures;
+    uint32_t num_samplers;
+    uint32_t num_texture_samplers;
     uint32_t num_uniform_blocks;
     uint32_t num_uniforms;
 };
@@ -93,6 +99,20 @@ struct sbs_refl_texture {
     int32_t  binding;
     uint32_t type;
     uint32_t sampler_type;
+};
+
+struct sbs_refl_sampler {
+    char     name[SBS_NAME_SIZE];
+    uint32_t set;
+    int32_t  binding;
+    uint32_t type;
+}; 
+
+struct sbs_refl_texture_sampler {
+    char     name[SBS_NAME_SIZE];
+    char     texture_name[SBS_NAME_SIZE];
+    char     sampler_name[SBS_NAME_SIZE];
+    int32_t  binding;
 }; 
 
 struct sbs_refl_uniformblock {
@@ -200,11 +220,23 @@ static uint32_t get_texture_format(texture_type_t type){
 
 static uint32_t get_texture_samplertype(texture_samplertype_t basetype){
     if (basetype == texture_samplertype_t::FLOAT){
-        return SBS_SAMPLERTYPE_FLOAT;
+        return SBS_TEXTURE_SAMPLERTYPE_FLOAT;
     }else if (basetype == texture_samplertype_t::SINT){
-        return SBS_SAMPLERTYPE_SINT;
+        return SBS_TEXTURE_SAMPLERTYPE_SINT;
     }else if (basetype == texture_samplertype_t::UINT){
-        return SBS_SAMPLERTYPE_UINT;
+        return SBS_TEXTURE_SAMPLERTYPE_UINT;
+    }else if (basetype == texture_samplertype_t::DEPTH){
+        return SBS_TEXTURE_SAMPLERTYPE_DEPTH;
+    }
+
+    return 0;
+}
+
+static uint32_t get_samplertype(sampler_type_t basetype){
+    if (basetype == sampler_type_t::FILTERING){
+        return SBS_SAMPLERTYPE_FILTERING;
+    }else if (basetype == sampler_type_t::COMPARISON){
+        return SBS_SAMPLERTYPE_COMPARISON;
     }
 
     return 0;
@@ -247,6 +279,8 @@ bool supershader::generate_sbs(const std::vector<spirvcross_t>& spirvcrossvec, c
             num_us += spirvcrossvec[i].uniform_blocks[ub].uniforms.size();
         }
         size_t num_textures = spirvcrossvec[i].textures.size();
+        size_t num_samplers = spirvcrossvec[i].samplers.size();
+        size_t num_texture_samplers = spirvcrossvec[i].texture_samplers.size();
 
         const uint32_t code_size = spirvcrossvec[i].source.size();
 
@@ -254,6 +288,8 @@ bool supershader::generate_sbs(const std::vector<spirvcross_t>& spirvcrossvec, c
             sizeof(sbs_chunk_refl) + 
             sizeof(sbs_refl_input) * num_inputs +
             sizeof(sbs_refl_texture) * num_textures +
+            sizeof(sbs_refl_sampler) * num_samplers +
+            sizeof(sbs_refl_texture_sampler) * num_texture_samplers +
             sizeof(sbs_refl_uniformblock) * num_ubs +
             sizeof(sbs_refl_uniform) * num_us;
 
@@ -282,9 +318,11 @@ bool supershader::generate_sbs(const std::vector<spirvcross_t>& spirvcrossvec, c
         sbs_chunk_refl refl;
         copy_name(refl.name, args.output_basename);
         refl.num_inputs = num_inputs;
-        refl.num_uniform_blocks = num_ubs;
-        refl.num_uniforms = num_us;
         refl.num_textures = num_textures;
+        refl.num_samplers = num_samplers;
+        refl.num_texture_samplers = num_texture_samplers;
+        refl.num_uniforms = num_us;
+        refl.num_uniform_blocks = num_ubs;
 
         ofs.write((char *) &refl, sizeof(sbs_chunk_refl));
 
@@ -308,6 +346,26 @@ bool supershader::generate_sbs(const std::vector<spirvcross_t>& spirvcrossvec, c
             refl_texture.sampler_type = get_texture_samplertype(spirvcrossvec[i].textures[a].sampler_type);
 
             ofs.write((char *) &refl_texture, sizeof(sbs_refl_texture));
+        }
+
+        for (int a = 0; a < num_samplers; a++){
+            sbs_refl_sampler refl_sampler;
+            copy_name(refl_sampler.name, spirvcrossvec[i].samplers[a].name.c_str());
+            refl_sampler.set = spirvcrossvec[i].samplers[a].set;
+            refl_sampler.binding = spirvcrossvec[i].samplers[a].binding;
+            refl_sampler.type = get_samplertype(spirvcrossvec[i].samplers[a].type);
+
+            ofs.write((char *) &refl_sampler, sizeof(sbs_refl_sampler));
+        }
+
+        for (int a = 0; a < num_texture_samplers; a++){
+            sbs_refl_texture_sampler refl_texture_sampler;
+            copy_name(refl_texture_sampler.name, spirvcrossvec[i].texture_samplers[a].name.c_str());
+            copy_name(refl_texture_sampler.texture_name, spirvcrossvec[i].texture_samplers[a].texture_name.c_str());
+            copy_name(refl_texture_sampler.sampler_name, spirvcrossvec[i].texture_samplers[a].sampler_name.c_str());
+            refl_texture_sampler.binding = spirvcrossvec[i].samplers[a].binding;
+
+            ofs.write((char *) &refl_texture_sampler, sizeof(sbs_refl_texture_sampler));
         }
 
         for (int a = 0; a < num_ubs; a++){
