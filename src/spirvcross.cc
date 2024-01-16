@@ -225,6 +225,49 @@ static bool validate_uniform_blocks_and_separate_image_samplers(const spirv_cros
     return true;
 }
 
+//
+// From https://github.com/floooh/sokol-tools
+//
+static void fix_bind_slots(spirv_cross::Compiler* compiler) {
+    spirv_cross::ShaderResources shader_resources = compiler->get_shader_resources();
+
+    // uniform buffers
+    {
+        uint32_t binding = 0;
+        for (const spirv_cross::Resource& res: shader_resources.uniform_buffers) {
+            compiler->set_decoration(res.id, spv::DecorationDescriptorSet, 0);
+            compiler->set_decoration(res.id, spv::DecorationBinding, binding++);
+        }
+    }
+
+    // combined image samplers
+    {
+        uint32_t binding = 0;
+        for (const spirv_cross::Resource& res: shader_resources.sampled_images) {
+            compiler->set_decoration(res.id, spv::DecorationDescriptorSet, 0);
+            compiler->set_decoration(res.id, spv::DecorationBinding, binding++);
+        }
+    }
+
+    // separate images
+    {
+        uint32_t binding = 0;
+        for (const spirv_cross::Resource& res: shader_resources.separate_images) {
+            compiler->set_decoration(res.id, spv::DecorationDescriptorSet, 0);
+            compiler->set_decoration(res.id, spv::DecorationBinding, binding++);
+        }
+    }
+
+    // separate samplers
+    {
+        uint32_t binding = 0;
+        for (const spirv_cross::Resource& res: shader_resources.separate_samplers) {
+            compiler->set_decoration(res.id, spv::DecorationDescriptorSet, 0);
+            compiler->set_decoration(res.id, spv::DecorationBinding, binding++);
+        }
+    }
+}
+
 static bool parse_reflection(spirvcross_t& spirvcross, const spirv_cross::Compiler* compiler) {
 
     spirv_cross::ShaderResources shd_resources = compiler->get_shader_resources();
@@ -356,9 +399,35 @@ static bool parse_reflection(spirvcross_t& spirvcross, const spirv_cross::Compil
     return true;
 }
 
+//
+// From https://github.com/floooh/sokol-tools
+//
+static bool parse_reflection_glsl(const std::vector<uint32_t>& bytecode, spirvcross_t& spirvcross) {
+    // use a separate CompilerGLSL instance to parse reflection, this is used
+    // for HLSL, MSL and WGSL output and avoids the generation of dummy samplers
+    spirv_cross::CompilerGLSL compiler(bytecode);
+    spirv_cross::CompilerGLSL::Options options;
+    options.emit_line_directives = false;
+    options.version = 330;
+    options.es = false;
+    options.vulkan_semantics = false;
+    options.enable_420pack_extension = false;
+    options.emit_uniform_buffer_as_plain_uniforms = true;
+    compiler.set_common_options(options);
+    flatten_uniform_blocks(&compiler);
+    to_combined_image_samplers(&compiler);
+    fix_bind_slots(&compiler);
+    fix_ub_matrix_force_colmajor(&compiler);
+    // NOTE: we need to compile here, otherwise the reflection won't be
+    // able to detect depth-textures and comparison-samplers!
+    compiler.compile();
+
+    return parse_reflection(spirvcross, &compiler);
+}
+
 bool supershader::compile_to_lang(std::vector<spirvcross_t>& spirvcrossvec, const std::vector<spirv_t>& spirvvec, const std::vector<input_t>& inputs, const args_t& args){
     for (int i = 0; i < inputs.size(); i++){
-        spirv_cross::Parser spirv_parser(move(spirvvec[i].bytecode));
+        spirv_cross::Parser spirv_parser(std::move(spirvvec[i].bytecode));
 	    spirv_parser.parse();
 
         std::unique_ptr<spirv_cross::CompilerGLSL> compiler;
@@ -432,6 +501,8 @@ bool supershader::compile_to_lang(std::vector<spirvcross_t>& spirvcrossvec, cons
             }
         }
 
+        fix_bind_slots(compiler.get());
+
         spirv_cross::ShaderResources res = compiler->get_shader_resources();
         if (!validate_uniform_blocks_and_separate_image_samplers(compiler.get(), res, inputs[i]))
             return false;
@@ -447,7 +518,7 @@ bool supershader::compile_to_lang(std::vector<spirvcross_t>& spirvcrossvec, cons
         
         spirvcrossvec[i].source = compiler->compile();
 
-        if (!parse_reflection(spirvcrossvec[i], compiler.get()))
+        if (!parse_reflection_glsl(spirvvec[i].bytecode, spirvcrossvec[i]))
             return false;
     }
     return true;
