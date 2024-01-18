@@ -225,6 +225,8 @@ void spirv_optimize(const glslang::TIntermediate& intermediate, std::vector<unsi
     optimizer.RegisterPass(spvtools::CreateAggressiveDCEPass());
     optimizer.RegisterPass(spvtools::CreateCFGCleanupPass());
 
+    optimizer.RegisterPass(spvtools::CreateAggressiveDCEPass(false, true));
+
     spvtools::OptimizerOptions spvOptOptions;
     optimizer.SetTargetEnv(MapToSpirvToolsEnv(intermediate.getSpv(), logger));
     spvOptOptions.set_run_validator(false); // The validator may run as a separate step later on
