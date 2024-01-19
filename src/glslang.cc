@@ -205,16 +205,16 @@ void spirv_optimize(const glslang::TIntermediate& intermediate, std::vector<unsi
     optimizer.RegisterPass(spvtools::CreateLocalSingleBlockLoadStoreElimPass());
     optimizer.RegisterPass(spvtools::CreateLocalSingleStoreElimPass());
     optimizer.RegisterPass(spvtools::CreateSimplificationPass());
-    //optimizer.RegisterPass(spvtools::CreateAggressiveDCEPass());
+    optimizer.RegisterPass(spvtools::CreateAggressiveDCEPass());
     optimizer.RegisterPass(spvtools::CreateVectorDCEPass());
     optimizer.RegisterPass(spvtools::CreateDeadInsertElimPass());
-    //optimizer.RegisterPass(spvtools::CreateAggressiveDCEPass());
+    optimizer.RegisterPass(spvtools::CreateAggressiveDCEPass());
     optimizer.RegisterPass(spvtools::CreateDeadBranchElimPass());
     //optimizer.RegisterPass(spvtools::CreateBlockMergePass());
     //optimizer.RegisterPass(spvtools::CreateLocalMultiStoreElimPass());
     optimizer.RegisterPass(spvtools::CreateIfConversionPass());
     optimizer.RegisterPass(spvtools::CreateSimplificationPass());
-    //optimizer.RegisterPass(spvtools::CreateAggressiveDCEPass());
+    optimizer.RegisterPass(spvtools::CreateAggressiveDCEPass());
     optimizer.RegisterPass(spvtools::CreateVectorDCEPass());
     optimizer.RegisterPass(spvtools::CreateDeadInsertElimPass());
     optimizer.RegisterPass(spvtools::CreateInterpolateFixupPass());
@@ -222,7 +222,7 @@ void spirv_optimize(const glslang::TIntermediate& intermediate, std::vector<unsi
         optimizer.RegisterPass(spvtools::CreateRedundancyEliminationPass());
         optimizer.RegisterPass(spvtools::CreateEliminateDeadInputComponentsSafePass());
     }
-    //optimizer.RegisterPass(spvtools::CreateAggressiveDCEPass());
+    optimizer.RegisterPass(spvtools::CreateAggressiveDCEPass());
     optimizer.RegisterPass(spvtools::CreateCFGCleanupPass());
 
     spvtools::OptimizerOptions spvOptOptions;

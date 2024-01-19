@@ -425,6 +425,35 @@ static bool parse_reflection_glsl(const std::vector<uint32_t>& bytecode, spirvcr
     return parse_reflection(spirvcross, &compiler);
 }
 
+bool validate_inputs_and_outputs(std::vector<spirvcross_t>& spirvcrossvec, const std::vector<input_t>& inputs){
+    int vsIndex = -1;
+    int fsIndex = -1;
+    for (int s = 0; s < inputs.size(); s++){
+        if (inputs[s].stage_type == stage_type_t::STAGE_VERTEX)
+            vsIndex = s;
+        if (inputs[s].stage_type == stage_type_t::STAGE_FRAGMENT)
+            fsIndex = s;
+    }
+
+    for (int o = 0; o < spirvcrossvec[vsIndex].outputs.size(); o++){
+        bool found = false;
+        supershader::s_attr_t output = spirvcrossvec[vsIndex].outputs[o];
+        for (int i = 0; i < spirvcrossvec[fsIndex].inputs.size(); i++){
+            supershader::s_attr_t input = spirvcrossvec[fsIndex].inputs[i];
+            if (output.name == input.name && output.type == input.type){
+                found = true;
+            }
+        }
+
+        if (!found){
+            fprintf(stderr, "%s, %s: vertex shader output '%s' does not exist in fragment shader inputs\n", inputs[vsIndex].filename.c_str(), inputs[fsIndex].filename.c_str(), output.name.c_str());
+            return false;
+        }
+    }
+
+    return true;
+}
+
 bool supershader::compile_to_lang(std::vector<spirvcross_t>& spirvcrossvec, const std::vector<spirv_t>& spirvvec, const std::vector<input_t>& inputs, const args_t& args){
     for (int i = 0; i < inputs.size(); i++){
         spirv_cross::Parser spirv_parser(std::move(spirvvec[i].bytecode));
@@ -521,5 +550,9 @@ bool supershader::compile_to_lang(std::vector<spirvcross_t>& spirvcrossvec, cons
         if (!parse_reflection_glsl(spirvvec[i].bytecode, spirvcrossvec[i]))
             return false;
     }
+
+    if (!validate_inputs_and_outputs(spirvcrossvec, inputs))
+        return false;
+
     return true;
 }
