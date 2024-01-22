@@ -451,6 +451,22 @@ bool validate_inputs_and_outputs(std::vector<spirvcross_t>& spirvcrossvec, const
         }
     }
 
+    for (int i = 0; i < spirvcrossvec[fsIndex].inputs.size(); i++){
+        bool found = false;
+        supershader::s_attr_t input = spirvcrossvec[fsIndex].inputs[i];
+        for (int o = 0; o < spirvcrossvec[vsIndex].outputs.size(); o++){
+            supershader::s_attr_t output = spirvcrossvec[vsIndex].outputs[o];
+            if (output.name == input.name && output.type == input.type){
+                found = true;
+            }
+        }
+
+        if (!found){
+            fprintf(stderr, "%s, %s: fragment shader input '%s' does not exist in vertex shader outputs\n", inputs[vsIndex].filename.c_str(), inputs[fsIndex].filename.c_str(), input.name.c_str());
+            return false;
+        }
+    }
+
     return true;
 }
 
