@@ -87,16 +87,20 @@ Each block header is 8 bytes ( uint32_t fourcc code + uint32_t for size).
         - **struct sbs_stage**
 		- **[CODE or DATA]** block: actual code or binary (byte-code) data for the shader stage
 		- **REFL** block: Reflection data for the shader stage
-			- **struct sbs_chunk_refl**: reflection data header
-			- **struct sbs_refl_input[]**: array of vertex-shader input attributes (see `sbs_chunk_refl` for number of inputs)
-			- **struct sbs_refl_uniformblock[]**: array of uniform blocks objects (see `sbs_chunk_refl` for number of uniform blocks)
-			- **struct sbs_refl_texture[]**: array of texture objects (see `sbs_chunk_refl` for number of textures)
-
+		- **struct sbs_chunk_refl**: reflection data header
+		- **struct sbs_refl_input[]**: array of vertex-shader input attributes (see `sbs_chunk_refl` for number of inputs)
+		- **struct sbs_refl_texture[]**: array of texture objects (see `sbs_chunk_refl` for number of textures)
+		- **struct sbs_refl_sampler[]**: array of sampler objects (see `sbs_chunk_refl` for number of samplers)
+		- **struct sbs_refl_texture_sampler[]**: array of texture-sampler pair objects (see `sbs_chunk_refl` for number of pairs)
+		- **struct sbs_refl_uniformblock[]**: array of uniform blocks objects (see `sbs_chunk_refl` for number of uniform blocks)
+			- **struct sbs_refl_uniform[]**: array of uniform objects (see `sbs_refl_uniformblock.num_uniforms` for number of uniforms)
 
 ### Updates
 
 #### 1.4
 - Changed json to be default output type format
+- Created sampler and texture-sampler pair blocks
+- Input and output shaders validation
 
 #### 1.3
 - Changed json and sbs file spec to support uniform blocks with float and int types inside
