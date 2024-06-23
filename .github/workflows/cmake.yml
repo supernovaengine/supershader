@@ -55,7 +55,7 @@ jobs:
           }
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Print env
         run: |
@@ -124,7 +124,7 @@ jobs:
         run: ls -laR
 
       - name: Upload
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.config.artifact }}
           path: ./instdir/bin/*
@@ -158,7 +158,7 @@ jobs:
           
     steps:
       - name: Download artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           name: ${{ matrix.config.artifact }}
           path: artifacts
@@ -179,7 +179,7 @@ jobs:
           zip -j ${{env.TARGET}}_${{ matrix.config.release }}.zip artifacts/*
           
       - name: Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: ${{env.TARGET}}_${{ matrix.config.release }}.zip
         env:
