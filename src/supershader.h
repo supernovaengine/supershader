@@ -11,6 +11,12 @@
 
 namespace supershader{
 
+    // need to be the same values of sokol_gfx
+    enum {
+        SG_MAX_VERTEX_BUFFERS = 10,
+        SG_MAX_SHADERSTAGE_UBS = 4,
+    };
+
     struct define_t{
         std::string def;
         std::string value;
@@ -181,6 +187,11 @@ namespace supershader{
         INVALID
     };
 
+    enum class storage_buffer_type_t{
+        STRUCT,
+        INVALID
+    };
+
     enum class texture_type_t {
         TEXTURE_2D,
         TEXTURE_CUBE,
@@ -230,6 +241,16 @@ namespace supershader{
         std::vector<s_uniform_t> uniforms;
     };
 
+    struct s_storage_buffer_t {
+        std::string name;
+        std::string inst_name;
+        uint32_t set;
+        uint32_t binding;
+        unsigned int size_bytes;
+        bool readonly = true;
+        storage_buffer_type_t type = storage_buffer_type_t::INVALID;
+    };
+
     struct s_texture_t {
         std::string name;
         uint32_t set;
@@ -261,6 +282,7 @@ namespace supershader{
         std::vector<s_attr_t> inputs;
         std::vector<s_attr_t> outputs;
         std::vector<s_uniform_block_t> uniform_blocks;
+        std::vector<s_storage_buffer_t> storage_buffers;
         std::vector<s_texture_t> textures;
         std::vector<s_sampler_t> samplers;
         std::vector<s_texture_sampler_t> texture_samplers;

@@ -11,7 +11,7 @@ using namespace supershader;
 
 #define makefourcc(_a, _b, _c, _d) (((uint32_t)(_a) | ((uint32_t)(_b) << 8) | ((uint32_t)(_c) << 16) | ((uint32_t)(_d) << 24)))
 
-#define SBS_VERSION 110
+#define SBS_VERSION 120
 #define SBS_NAME_SIZE 64
 
 #pragma pack(push, 1)
@@ -49,6 +49,8 @@ using namespace supershader;
 #define SBS_UNIFORMTYPE_MAT3     makefourcc('M', 'A', 'T', '3')
 #define SBS_UNIFORMTYPE_MAT4     makefourcc('M', 'A', 'T', '4')
 
+#define SBS_STORAGEBUFFERTYPE_STRUCT     makefourcc('S', 'T', 'R', 'C')
+
 #define SBS_TEXTURE_2D          makefourcc('2', 'D', ' ', ' ')
 #define SBS_TEXTURE_3D          makefourcc('3', 'D', ' ', ' ')
 #define SBS_TEXTURE_CUBE        makefourcc('C', 'U', 'B', 'E')
@@ -83,6 +85,7 @@ struct sbs_chunk_refl {
     uint32_t num_texture_samplers;
     uint32_t num_uniform_blocks;
     uint32_t num_uniforms;
+    uint32_t num_storage_buffers;
 };
 
 struct sbs_refl_input {
@@ -132,6 +135,16 @@ struct sbs_refl_uniform {
     uint32_t offset;
 };
 
+struct sbs_refl_storagebuffer {
+    char     name[SBS_NAME_SIZE];
+    char     inst_name[SBS_NAME_SIZE];
+    uint32_t set;
+    int32_t  binding;
+    uint32_t size_bytes;
+    bool     readonly;
+    uint32_t type;
+};
+
 #pragma pack(pop)
 
 static uint32_t get_stage(stage_type_t stage){
@@ -177,6 +190,14 @@ static uint32_t get_uniform_type(uniform_type_t type){
         return SBS_UNIFORMTYPE_MAT3;
     }else if (type == uniform_type_t::MAT4){
         return SBS_UNIFORMTYPE_MAT4;
+    }
+
+    return 0;
+}
+
+static uint32_t get_storage_buffer_type(storage_buffer_type_t type){
+    if (type == storage_buffer_type_t::STRUCT){
+        return SBS_STORAGEBUFFERTYPE_STRUCT;
     }
 
     return 0;
@@ -281,6 +302,7 @@ bool supershader::generate_sbs(const std::vector<spirvcross_t>& spirvcrossvec, c
         size_t num_textures = spirvcrossvec[i].textures.size();
         size_t num_samplers = spirvcrossvec[i].samplers.size();
         size_t num_texture_samplers = spirvcrossvec[i].texture_samplers.size();
+        size_t num_sb = spirvcrossvec[i].storage_buffers.size();
 
         const uint32_t code_size = spirvcrossvec[i].source.size();
 
@@ -291,7 +313,8 @@ bool supershader::generate_sbs(const std::vector<spirvcross_t>& spirvcrossvec, c
             sizeof(sbs_refl_sampler) * num_samplers +
             sizeof(sbs_refl_texture_sampler) * num_texture_samplers +
             sizeof(sbs_refl_uniformblock) * num_ubs +
-            sizeof(sbs_refl_uniform) * num_us;
+            sizeof(sbs_refl_uniform) * num_us +
+            sizeof(sbs_refl_storagebuffer) * num_sb;
 
         const uint32_t stage_size = 
             sizeof(sbs_stage) +
@@ -321,8 +344,9 @@ bool supershader::generate_sbs(const std::vector<spirvcross_t>& spirvcrossvec, c
         refl.num_textures = num_textures;
         refl.num_samplers = num_samplers;
         refl.num_texture_samplers = num_texture_samplers;
-        refl.num_uniforms = num_us;
         refl.num_uniform_blocks = num_ubs;
+        refl.num_uniforms = num_us;
+        refl.num_storage_buffers = num_sb;
 
         ofs.write((char *) &refl, sizeof(sbs_chunk_refl));
 
@@ -389,6 +413,19 @@ bool supershader::generate_sbs(const std::vector<spirvcross_t>& spirvcrossvec, c
 
                 ofs.write((char *) &refl_uniform, sizeof(sbs_refl_uniform));
             }
+        }
+
+        for (int a = 0; a < num_sb; a++){
+            sbs_refl_storagebuffer refl_storagebuffer;
+            copy_name(refl_storagebuffer.name, spirvcrossvec[i].storage_buffers[a].name);
+            copy_name(refl_storagebuffer.inst_name, spirvcrossvec[i].storage_buffers[a].inst_name);
+            refl_storagebuffer.set = spirvcrossvec[i].storage_buffers[a].set;
+            refl_storagebuffer.binding = spirvcrossvec[i].storage_buffers[a].binding;
+            refl_storagebuffer.size_bytes = spirvcrossvec[i].storage_buffers[a].size_bytes;
+            refl_storagebuffer.readonly = spirvcrossvec[i].storage_buffers[a].readonly;
+            refl_storagebuffer.type = get_storage_buffer_type(spirvcrossvec[i].storage_buffers[a].type);
+
+            ofs.write((char *) &refl_storagebuffer, sizeof(sbs_refl_storagebuffer));
         }
     }
 

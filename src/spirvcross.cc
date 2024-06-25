@@ -177,26 +177,6 @@ static void to_combined_image_samplers(spirv_cross::CompilerGLSL* compiler) {
     }
 }
 
-//
-// From https://github.com/floooh/sokol-tools
-//
-static void fix_ub_matrix_force_colmajor(spirv_cross::Compiler* compiler) {
-    /* go though all uniform block matrixes and decorate them with
-        column-major, this is needed in the HLSL backend to fix the
-        multiplication order
-    */
-    spirv_cross::ShaderResources res = compiler->get_shader_resources();
-    for (const spirv_cross::Resource& ub_res: res.uniform_buffers) {
-        const spirv_cross::SPIRType& ub_type = compiler->get_type(ub_res.base_type_id);
-        for (int m_index = 0; m_index < (int)ub_type.member_types.size(); m_index++) {
-            const spirv_cross::SPIRType& m_type = compiler->get_type(ub_type.member_types[m_index]);
-            if ((m_type.basetype == spirv_cross::SPIRType::Float) && (m_type.vecsize > 1) && (m_type.columns > 1)) {
-                compiler->set_member_decoration(ub_res.base_type_id, m_index, spv::DecorationColMajor);
-            }
-        }
-    }
-}
-
 static bool validate_uniform_blocks_and_separate_image_samplers(const spirv_cross::Compiler* compiler, const spirv_cross::ShaderResources& res, const input_t& input) {
     for (const spirv_cross::Resource& ub_res: res.uniform_buffers) {
         const spirv_cross::SPIRType& ub_type = compiler->get_type(ub_res.base_type_id);
@@ -228,7 +208,7 @@ static bool validate_uniform_blocks_and_separate_image_samplers(const spirv_cros
 //
 // From https://github.com/floooh/sokol-tools
 //
-static void fix_bind_slots(spirv_cross::Compiler* compiler) {
+static void fix_bind_slots(spirv_cross::Compiler* compiler, const supershader::lang_type_t* lang, const stage_type_t* stage_type) {
     spirv_cross::ShaderResources shader_resources = compiler->get_shader_resources();
 
     // uniform buffers
@@ -266,9 +246,35 @@ static void fix_bind_slots(spirv_cross::Compiler* compiler) {
             compiler->set_decoration(res.id, spv::DecorationBinding, binding++);
         }
     }
+
+    // storage buffers
+    {
+        uint32_t binding;
+        if (lang){
+            if (*lang == LANG_MSL) {
+                // in Metal, on the vertex stage, storage buffers are bound after uniform- and vertex-buffers,
+                // and on the fragment stage, after the uniform buffers
+                binding = (*stage_type == STAGE_VERTEX) ? (SG_MAX_VERTEX_BUFFERS + SG_MAX_SHADERSTAGE_UBS) : SG_MAX_SHADERSTAGE_UBS;
+            } else if (*lang == LANG_HLSL) {
+                // in D3D11, storage buffers share bind slots with textures, put textures into
+                // the first 16 slots, and storage buffers starting at slot 16
+                binding = 16;
+            } else if (*lang == LANG_GLSL) {
+                // in GL, the shader stages share a common bind space, need to offset
+                // fragment bindings
+                binding = (*stage_type == STAGE_VERTEX) ? 0 : SG_MAX_VERTEX_BUFFERS;
+            }
+        } else {
+            binding = 0;
+        }
+        for (const spirv_cross::Resource& res: shader_resources.storage_buffers) {
+            compiler->set_decoration(res.id, spv::DecorationDescriptorSet, 0);
+            compiler->set_decoration(res.id, spv::DecorationBinding, binding++);
+        }
+    }
 }
 
-static bool parse_reflection(spirvcross_t& spirvcross, const spirv_cross::Compiler* compiler) {
+static bool parse_stage_reflection(spirvcross_t& spirvcross, const spirv_cross::Compiler* compiler) {
 
     spirv_cross::ShaderResources shd_resources = compiler->get_shader_resources();
 
@@ -349,6 +355,30 @@ static bool parse_reflection(spirvcross_t& spirvcross, const spirv_cross::Compil
         spirvcross.uniform_blocks.push_back(ub);
     }
 
+    // storage buffers
+    for (const spirv_cross::Resource& sbuf_res: shd_resources.storage_buffers) {
+        s_storage_buffer_t sb;
+
+        const spirv_cross::SPIRType& struct_type = compiler->get_type(sbuf_res.base_type_id);
+        if (struct_type.basetype != spirv_cross::SPIRType::Struct) {
+            fprintf(stderr, "toplevel item %s is not a struct\n", sbuf_res.name.c_str());
+            return false;
+        }
+
+        sb.name = sbuf_res.name;
+        sb.inst_name = compiler->get_name(sbuf_res.id);
+        if (sb.inst_name.empty()) {
+            sb.inst_name = compiler->get_fallback_name(sbuf_res.id);
+        }
+        sb.set = compiler->get_decoration(sbuf_res.id, spv::DecorationDescriptorSet);
+        sb.binding = compiler->get_decoration(sbuf_res.id, spv::DecorationBinding);
+        sb.readonly = compiler->get_buffer_block_flags(sbuf_res.id).get(spv::DecorationNonWritable);
+        sb.size_bytes = (int) compiler->get_declared_struct_size_runtime_array(struct_type, 1);
+        sb.type = storage_buffer_type_t::STRUCT;
+
+        spirvcross.storage_buffers.push_back(sb);
+    }
+
     // (separate) images
     for (const spirv_cross::Resource& img_res: shd_resources.separate_images) {
         s_texture_t image;
@@ -402,13 +432,13 @@ static bool parse_reflection(spirvcross_t& spirvcross, const spirv_cross::Compil
 //
 // From https://github.com/floooh/sokol-tools
 //
-static bool parse_reflection_glsl(const std::vector<uint32_t>& bytecode, spirvcross_t& spirvcross) {
-    // use a separate CompilerGLSL instance to parse reflection, this is used
-    // for HLSL, MSL and WGSL output and avoids the generation of dummy samplers
+static bool parse_reflection(const std::vector<uint32_t>& bytecode, spirvcross_t& spirvcross) {
+    // NOTE: do *NOT* use CompilerReflection here, this doesn't generate
+    // the right reflection info for depth textures and comparison samplers
     spirv_cross::CompilerGLSL compiler(bytecode);
     spirv_cross::CompilerGLSL::Options options;
     options.emit_line_directives = false;
-    options.version = 330;
+    options.version = 430;
     options.es = false;
     options.vulkan_semantics = false;
     options.enable_420pack_extension = false;
@@ -416,13 +446,12 @@ static bool parse_reflection_glsl(const std::vector<uint32_t>& bytecode, spirvcr
     compiler.set_common_options(options);
     flatten_uniform_blocks(&compiler);
     to_combined_image_samplers(&compiler);
-    fix_bind_slots(&compiler);
-    fix_ub_matrix_force_colmajor(&compiler);
+    fix_bind_slots(&compiler, nullptr, nullptr);
     // NOTE: we need to compile here, otherwise the reflection won't be
     // able to detect depth-textures and comparison-samplers!
     compiler.compile();
 
-    return parse_reflection(spirvcross, &compiler);
+    return parse_stage_reflection(spirvcross, &compiler);
 }
 
 bool validate_inputs_and_outputs(std::vector<spirvcross_t>& spirvcrossvec, const std::vector<input_t>& inputs){
@@ -546,7 +575,7 @@ bool supershader::compile_to_lang(std::vector<spirvcross_t>& spirvcrossvec, cons
             }
         }
 
-        fix_bind_slots(compiler.get());
+        fix_bind_slots(compiler.get(), &args.lang, &inputs[i].stage_type);
 
         spirv_cross::ShaderResources res = compiler->get_shader_resources();
         if (!validate_uniform_blocks_and_separate_image_samplers(compiler.get(), res, inputs[i]))
@@ -558,12 +587,10 @@ bool supershader::compile_to_lang(std::vector<spirvcross_t>& spirvcrossvec, cons
             flatten_uniform_blocks(compiler.get());
             to_combined_image_samplers(compiler.get());
         }
-
-        fix_ub_matrix_force_colmajor(compiler.get());
         
         spirvcrossvec[i].source = compiler->compile();
 
-        if (!parse_reflection_glsl(spirvvec[i].bytecode, spirvcrossvec[i]))
+        if (!parse_reflection(spirvvec[i].bytecode, spirvcrossvec[i]))
             return false;
     }
 

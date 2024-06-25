@@ -109,6 +109,15 @@ static std::string uniform_type_to_string(uniform_type_t type){
     return "";
 }
 
+static std::string storage_buffer_type_to_string(storage_buffer_type_t type){
+    if (type == storage_buffer_type_t::STRUCT){
+        return "struct";
+    }else if (type == storage_buffer_type_t::INVALID){
+        return "INVALID";
+    }
+    return "";
+}
+
 static std::string texture_type_to_string(texture_type_t type){
     if (type == texture_type_t::TEXTURE_2D){
         return "texture_2d";
@@ -240,6 +249,19 @@ bool supershader::generate_json(const std::vector<spirvcross_t>& spirvcrossvec, 
             }
 
             sj["uniform_blocks"].push_back(ubj);
+        }
+
+        for (int isb = 0; isb < spirvcrossvec[i].storage_buffers.size(); isb++){
+            s_storage_buffer_t sb = spirvcrossvec[i].storage_buffers[isb];
+            json sbj;
+            sbj["name"] = sb.name;
+            sbj["inst_name"] = sb.inst_name;
+            sbj["set"] = sb.set;
+            sbj["binding"] = sb.binding;
+            sbj["size_bytes"] = sb.size_bytes;
+            sbj["type"] = storage_buffer_type_to_string(sb.type);
+
+            sj["storage_buffers"].push_back(sbj);
         }
 
 

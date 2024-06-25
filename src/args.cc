@@ -136,7 +136,9 @@ args_t supershader::parse_args(int argc, const char **argv){
                                 "\n  - Fragment shader (--frag)"
                                 "\n"
                                 "\nCurrent supported shader langs:"
-                                "\n  - glsl330: desktop (default)"
+                                "\n  - glsl430: desktop (default)"
+                                "\n  - glsl410: desktop"
+                                "\n  - glsl330: desktop"
                                 "\n  - glsl100: GLES2 / WebGL"
                                 "\n  - glsl300es: GLES3 / WebGL2"
                                 "\n  - hlsl4: D3D11"
@@ -171,6 +173,12 @@ args_t supershader::parse_args(int argc, const char **argv){
         if (templang == "glsl330"){
             args.lang = LANG_GLSL;
             args.version = 330;
+        }else if (templang == "glsl410"){
+            args.lang = LANG_GLSL;
+            args.version = 410;
+        }else if (templang == "glsl430"){
+            args.lang = LANG_GLSL;
+            args.version = 430;
         }else if (templang == "glsl100"){
             args.lang = LANG_GLSL;
             args.version = 100;
@@ -207,8 +215,8 @@ args_t supershader::parse_args(int argc, const char **argv){
         }
     } else {
         args.lang = LANG_GLSL;
-        args.version = 330;
-        fprintf( stdout, "Not defined shader output language, using: gles330\n");
+        args.version = 430;
+        fprintf( stdout, "Not defined shader output language, using: glsl430\n");
     }
 
     if (output){
