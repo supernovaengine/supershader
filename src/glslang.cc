@@ -146,6 +146,8 @@ static void add_defines(glslang::TShader* shader, const args_t& args, std::strin
 // Start modified part of SpvTools.cpp/SpirvToolsTransform to work with WEBGL1 and HLSL shaders
 // Check this if changed glslang version
 //
+
+// Callback passed to spvtools::Optimizer::SetMessageConsumer
 void OptimizerMesssageConsumer(spv_message_level_t level, const char *source,
         const spv_position_t &position, const char *message)
 {
