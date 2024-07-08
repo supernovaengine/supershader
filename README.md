@@ -97,6 +97,10 @@ Each block header is 8 bytes ( uint32_t fourcc code + uint32_t for size).
 
 ### Updates
 
+#### 1.5
+- Storage buffer support
+- New sbs file version
+
 #### 1.4
 - Changed json to be default output type format
 - Created sampler and texture-sampler pair blocks
