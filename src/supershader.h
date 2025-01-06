@@ -11,12 +11,6 @@
 
 namespace supershader{
 
-    // need to be the same values of sokol_gfx
-    enum {
-        SG_MAX_VERTEX_BUFFERS = 10,
-        SG_MAX_SHADERSTAGE_UBS = 4,
-    };
-
     struct define_t{
         std::string def;
         std::string value;

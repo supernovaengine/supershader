@@ -205,6 +205,7 @@ static bool validate_uniform_blocks_and_separate_image_samplers(const spirv_cros
     return true;
 }
 
+/*
 //
 // From https://github.com/floooh/sokol-tools
 //
@@ -273,6 +274,7 @@ static void fix_bind_slots(spirv_cross::Compiler* compiler, const supershader::l
         }
     }
 }
+*/
 
 static bool parse_stage_reflection(spirvcross_t& spirvcross, const spirv_cross::Compiler* compiler) {
 
@@ -429,6 +431,7 @@ static bool parse_stage_reflection(spirvcross_t& spirvcross, const spirv_cross::
     return true;
 }
 
+/*
 //
 // From https://github.com/floooh/sokol-tools
 //
@@ -453,6 +456,7 @@ static bool parse_reflection(const std::vector<uint32_t>& bytecode, spirvcross_t
 
     return parse_stage_reflection(spirvcross, &compiler);
 }
+*/
 
 bool validate_inputs_and_outputs(std::vector<spirvcross_t>& spirvcrossvec, const std::vector<input_t>& inputs){
     int vsIndex = -1;
@@ -575,7 +579,7 @@ bool supershader::compile_to_lang(std::vector<spirvcross_t>& spirvcrossvec, cons
             }
         }
 
-        fix_bind_slots(compiler.get(), &args.lang, &inputs[i].stage_type);
+        //fix_bind_slots(compiler.get(), &args.lang, &inputs[i].stage_type);
 
         spirv_cross::ShaderResources res = compiler->get_shader_resources();
         if (!validate_uniform_blocks_and_separate_image_samplers(compiler.get(), res, inputs[i]))
@@ -585,13 +589,16 @@ bool supershader::compile_to_lang(std::vector<spirvcross_t>& spirvcrossvec, cons
         // TODO: Not for Vulkan
         if (args.lang == LANG_GLSL) {
             flatten_uniform_blocks(compiler.get());
-            to_combined_image_samplers(compiler.get());
         }
+        to_combined_image_samplers(compiler.get());
         
         spirvcrossvec[i].source = compiler->compile();
 
-        if (!parse_reflection(spirvvec[i].bytecode, spirvcrossvec[i]))
+        if (!parse_stage_reflection(spirvcrossvec[i], compiler.get()))
             return false;
+
+        //if (!parse_reflection(spirvvec[i].bytecode, spirvcrossvec[i]))
+        //    return false;
     }
 
     if (!validate_inputs_and_outputs(spirvcrossvec, inputs))
