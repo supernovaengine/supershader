@@ -205,16 +205,47 @@ static bool validate_uniform_blocks_and_separate_image_samplers(const spirv_cros
     return true;
 }
 
-/*
 //
 // From https://github.com/floooh/sokol-tools
 //
-static void fix_bind_slots(spirv_cross::Compiler* compiler, const supershader::lang_type_t* lang, const stage_type_t* stage_type) {
+uint32_t base_slot(const supershader::lang_type_t lang, const stage_type_t stage_type, BindingType type){
+    int res = 0;
+    switch (type) {
+        case BindingType::UNIFORM_BLOCK:
+            // TODO: wgsl
+            break;
+        case BindingType::IMAGE_SAMPLER:
+            if (lang == LANG_GLSL) {
+                res = (stage_type == STAGE_VERTEX) ? 0 : MaxImageSamplers;
+            }
+            break;
+        case BindingType::IMAGE:
+            // TODO: wgsl
+            break;
+        case BindingType::SAMPLER:
+            // TODO: wgsl
+            break;
+        case BindingType::STORAGE_BUFFER:
+            if (lang == LANG_MSL) {
+                res = MaxUniformBlocks;
+            } else if (lang == LANG_HLSL) {
+                res = MaxImages;
+            } else if (lang == LANG_GLSL) {
+                if (stage_type == STAGE_FRAGMENT) {
+                    res = MaxStorageBuffers;
+                }
+            } // TODO: wgsl
+            break;
+    }
+    return res;
+}
+
+static void fix_bind_slots(spirv_cross::Compiler* compiler, const supershader::lang_type_t lang, const stage_type_t stage_type) {
     spirv_cross::ShaderResources shader_resources = compiler->get_shader_resources();
 
     // uniform buffers
     {
-        uint32_t binding = 0;
+        uint32_t binding = base_slot(lang, stage_type, BindingType::UNIFORM_BLOCK);
         for (const spirv_cross::Resource& res: shader_resources.uniform_buffers) {
             compiler->set_decoration(res.id, spv::DecorationDescriptorSet, 0);
             compiler->set_decoration(res.id, spv::DecorationBinding, binding++);
@@ -223,7 +254,7 @@ static void fix_bind_slots(spirv_cross::Compiler* compiler, const supershader::l
 
     // combined image samplers
     {
-        uint32_t binding = 0;
+        uint32_t binding = base_slot(lang, stage_type, BindingType::IMAGE_SAMPLER);
         for (const spirv_cross::Resource& res: shader_resources.sampled_images) {
             compiler->set_decoration(res.id, spv::DecorationDescriptorSet, 0);
             compiler->set_decoration(res.id, spv::DecorationBinding, binding++);
@@ -232,7 +263,7 @@ static void fix_bind_slots(spirv_cross::Compiler* compiler, const supershader::l
 
     // separate images
     {
-        uint32_t binding = 0;
+        uint32_t binding = base_slot(lang, stage_type, BindingType::IMAGE);
         for (const spirv_cross::Resource& res: shader_resources.separate_images) {
             compiler->set_decoration(res.id, spv::DecorationDescriptorSet, 0);
             compiler->set_decoration(res.id, spv::DecorationBinding, binding++);
@@ -241,7 +272,7 @@ static void fix_bind_slots(spirv_cross::Compiler* compiler, const supershader::l
 
     // separate samplers
     {
-        uint32_t binding = 0;
+        uint32_t binding = base_slot(lang, stage_type, BindingType::SAMPLER);
         for (const spirv_cross::Resource& res: shader_resources.separate_samplers) {
             compiler->set_decoration(res.id, spv::DecorationDescriptorSet, 0);
             compiler->set_decoration(res.id, spv::DecorationBinding, binding++);
@@ -250,31 +281,13 @@ static void fix_bind_slots(spirv_cross::Compiler* compiler, const supershader::l
 
     // storage buffers
     {
-        uint32_t binding;
-        if (lang){
-            if (*lang == LANG_MSL) {
-                // in Metal, on the vertex stage, storage buffers are bound after uniform- and vertex-buffers,
-                // and on the fragment stage, after the uniform buffers
-                binding = (*stage_type == STAGE_VERTEX) ? (SG_MAX_VERTEX_BUFFERS + SG_MAX_SHADERSTAGE_UBS) : SG_MAX_SHADERSTAGE_UBS;
-            } else if (*lang == LANG_HLSL) {
-                // in D3D11, storage buffers share bind slots with textures, put textures into
-                // the first 16 slots, and storage buffers starting at slot 16
-                binding = 16;
-            } else if (*lang == LANG_GLSL) {
-                // in GL, the shader stages share a common bind space, need to offset
-                // fragment bindings
-                binding = (*stage_type == STAGE_VERTEX) ? 0 : SG_MAX_VERTEX_BUFFERS;
-            }
-        } else {
-            binding = 0;
-        }
+        uint32_t binding = base_slot(lang, stage_type, BindingType::STORAGE_BUFFER);
         for (const spirv_cross::Resource& res: shader_resources.storage_buffers) {
             compiler->set_decoration(res.id, spv::DecorationDescriptorSet, 0);
             compiler->set_decoration(res.id, spv::DecorationBinding, binding++);
         }
     }
 }
-*/
 
 static bool parse_stage_reflection(spirvcross_t& spirvcross, const spirv_cross::Compiler* compiler) {
 
@@ -579,7 +592,7 @@ bool supershader::compile_to_lang(std::vector<spirvcross_t>& spirvcrossvec, cons
             }
         }
 
-        //fix_bind_slots(compiler.get(), &args.lang, &inputs[i].stage_type);
+        fix_bind_slots(compiler.get(), args.lang, inputs[i].stage_type);
 
         spirv_cross::ShaderResources res = compiler->get_shader_resources();
         if (!validate_uniform_blocks_and_separate_image_samplers(compiler.get(), res, inputs[i]))

@@ -11,6 +11,30 @@
 
 namespace supershader{
 
+    //
+    // From https://github.com/floooh/sokol-tools
+    //
+    // keep these in sync with:
+    //  - SG_MAX_UNIFORMBLOCK_BINDSLOTS
+    //  - SG_MAX_IMAGE_BINDSLOTS
+    //  - SG_MAX_SAMPLER_BINDSLOTS
+    //  - SG_MAX_STORAGEBUFFER_BINDSLOTS
+    //  - SG_MAX_IMAGE_SAMPLERS_PAIRS
+    //
+    inline static const int MaxUniformBlocks = 10;
+    inline static const int MaxImages = 16;
+    inline static const int MaxSamplers = 16;
+    inline static const int MaxStorageBuffers = 8;
+    inline static const int MaxImageSamplers = 16;
+
+    enum class BindingType {
+        UNIFORM_BLOCK,
+        IMAGE,
+        SAMPLER,
+        STORAGE_BUFFER,
+        IMAGE_SAMPLER,
+    };
+
     struct define_t{
         std::string def;
         std::string value;
