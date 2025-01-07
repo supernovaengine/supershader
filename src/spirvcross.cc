@@ -208,9 +208,9 @@ static bool validate_uniform_blocks_and_separate_image_samplers(const spirv_cros
 //
 // From https://github.com/floooh/sokol-tools
 //
-uint32_t base_slot(const supershader::lang_type_t* lang, const stage_type_t* stage_type, BindingType type){
+uint32_t base_slot(const supershader::lang_type_t* lang, const stage_type_t stage_type, BindingType type){
     int res = 0;
-    if (!lang || !stage_type)
+    if (!lang)
         return res;
 
     switch (type) {
@@ -219,7 +219,7 @@ uint32_t base_slot(const supershader::lang_type_t* lang, const stage_type_t* sta
             break;
         case BindingType::IMAGE_SAMPLER:
             if (*lang == LANG_GLSL) {
-                res = (*stage_type == STAGE_VERTEX) ? 0 : MaxImageSamplers;
+                res = (stage_type == STAGE_VERTEX) ? 0 : MaxImageSamplers;
             }
             break;
         case BindingType::IMAGE:
@@ -234,7 +234,7 @@ uint32_t base_slot(const supershader::lang_type_t* lang, const stage_type_t* sta
             } else if (*lang == LANG_HLSL) {
                 res = MaxImages;
             } else if (*lang == LANG_GLSL) {
-                if (*stage_type == STAGE_FRAGMENT) {
+                if (stage_type == STAGE_FRAGMENT) {
                     res = MaxStorageBuffers;
                 }
             } // TODO: wgsl
@@ -243,7 +243,7 @@ uint32_t base_slot(const supershader::lang_type_t* lang, const stage_type_t* sta
     return res;
 }
 
-static void fix_bind_slots(spirv_cross::Compiler* compiler, const stage_type_t* stage_type, const supershader::lang_type_t* lang) {
+static void fix_bind_slots(spirv_cross::Compiler* compiler, const stage_type_t stage_type, const supershader::lang_type_t* lang) {
     spirv_cross::ShaderResources shader_resources = compiler->get_shader_resources();
 
     // uniform buffers
@@ -436,12 +436,11 @@ static bool parse_stage_reflection(spirvcross_t& spirvcross, const spirv_cross::
 
     // combined image samplers
     for (auto& img_smp_res: compiler->get_combined_image_samplers()) {
-        s_texture_sampler_t img_smp;
-        img_smp.binding = compiler->get_decoration(img_smp_res.combined_id, spv::DecorationBinding);
+        s_texture_sampler_pair_t img_smp;
         img_smp.name = compiler->get_name(img_smp_res.combined_id);
         img_smp.texture_name = compiler->get_name(img_smp_res.image_id);
         img_smp.sampler_name = compiler->get_name(img_smp_res.sampler_id);
-        spirvcross.texture_samplers.push_back(img_smp);
+        spirvcross.texture_sampler_pairs.push_back(img_smp);
     }
 
     return true;
@@ -451,7 +450,7 @@ static bool parse_stage_reflection(spirvcross_t& spirvcross, const spirv_cross::
 //
 // From https://github.com/floooh/sokol-tools
 //
-static bool parse_reflection(const std::vector<uint32_t>& bytecode, spirvcross_t& spirvcross) {
+static bool parse_reflection(const std::vector<uint32_t>& bytecode, const stage_type_t stage_type, spirvcross_t& spirvcross) {
     // NOTE: do *NOT* use CompilerReflection here, this doesn't generate
     // the right reflection info for depth textures and comparison samplers
     spirv_cross::CompilerGLSL compiler(bytecode);
@@ -465,7 +464,7 @@ static bool parse_reflection(const std::vector<uint32_t>& bytecode, spirvcross_t
     compiler.set_common_options(options);
     flatten_uniform_blocks(&compiler);
     to_combined_image_samplers(&compiler);
-    fix_bind_slots(&compiler, nullptr, nullptr);
+    fix_bind_slots(&compiler, stage_type, nullptr);
     // NOTE: we need to compile here, otherwise the reflection won't be
     // able to detect depth-textures and comparison-samplers!
     compiler.compile();
@@ -595,7 +594,7 @@ bool supershader::compile_to_lang(std::vector<spirvcross_t>& spirvcrossvec, cons
             }
         }
 
-        fix_bind_slots(compiler.get(), &inputs[i].stage_type, &args.lang);
+        fix_bind_slots(compiler.get(), inputs[i].stage_type, &args.lang);
 
         spirv_cross::ShaderResources res = compiler->get_shader_resources();
         if (!validate_uniform_blocks_and_separate_image_samplers(compiler.get(), res, inputs[i]))
@@ -610,7 +609,7 @@ bool supershader::compile_to_lang(std::vector<spirvcross_t>& spirvcrossvec, cons
         
         spirvcrossvec[i].source = compiler->compile();
 
-        if (!parse_reflection(spirvvec[i].bytecode, spirvcrossvec[i]))
+        if (!parse_reflection(spirvvec[i].bytecode, inputs[i].stage_type, spirvcrossvec[i]))
             return false;
     }
 

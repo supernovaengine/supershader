@@ -216,15 +216,14 @@ bool supershader::generate_json(const std::vector<spirvcross_t>& spirvcrossvec, 
             sj["samplers"].push_back(smj);
         }
 
-        for (int its = 0; its < spirvcrossvec[i].texture_samplers.size(); its++){
-            s_texture_sampler_t tsm = spirvcrossvec[i].texture_samplers[its];
+        for (int its = 0; its < spirvcrossvec[i].texture_sampler_pairs.size(); its++){
+            s_texture_sampler_pair_t tsm = spirvcrossvec[i].texture_sampler_pairs[its];
             json tsmj;
             tsmj["name"] = tsm.name;
             tsmj["texture_name"] = tsm.texture_name;
             tsmj["sampler_name"] = tsm.sampler_name;
-            tsmj["binding"] = tsm.binding;
 
-            sj["texture_samplers"].push_back(tsmj);
+            sj["texture_sampler_pairs"].push_back(tsmj);
         }
 
         for (int iub = 0; iub < spirvcrossvec[i].uniform_blocks.size(); iub++){

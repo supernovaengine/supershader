@@ -284,11 +284,10 @@ namespace supershader{
         sampler_type_t type = sampler_type_t::INVALID;
     };
 
-    struct s_texture_sampler_t {
+    struct s_texture_sampler_pair_t {
         std::string name;
         std::string texture_name;
         std::string sampler_name;
-        uint32_t binding;
     };
 
     struct spirvcross_t{
@@ -303,7 +302,7 @@ namespace supershader{
         std::vector<s_storage_buffer_t> storage_buffers;
         std::vector<s_texture_t> textures;
         std::vector<s_sampler_t> samplers;
-        std::vector<s_texture_sampler_t> texture_samplers;
+        std::vector<s_texture_sampler_pair_t> texture_sampler_pairs;
     };
 
 

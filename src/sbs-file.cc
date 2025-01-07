@@ -11,7 +11,7 @@ using namespace supershader;
 
 #define makefourcc(_a, _b, _c, _d) (((uint32_t)(_a) | ((uint32_t)(_b) << 8) | ((uint32_t)(_c) << 16) | ((uint32_t)(_d) << 24)))
 
-#define SBS_VERSION 120
+#define SBS_VERSION 130
 #define SBS_NAME_SIZE 64
 
 #pragma pack(push, 1)
@@ -82,7 +82,7 @@ struct sbs_chunk_refl {
     uint32_t num_inputs;
     uint32_t num_textures;
     uint32_t num_samplers;
-    uint32_t num_texture_samplers;
+    uint32_t num_texture_sampler_pairs;
     uint32_t num_uniform_blocks;
     uint32_t num_uniforms;
     uint32_t num_storage_buffers;
@@ -111,11 +111,10 @@ struct sbs_refl_sampler {
     uint32_t type;
 }; 
 
-struct sbs_refl_texture_sampler {
+struct sbs_refl_texture_sampler_pair {
     char     name[SBS_NAME_SIZE];
     char     texture_name[SBS_NAME_SIZE];
     char     sampler_name[SBS_NAME_SIZE];
-    int32_t  binding;
 }; 
 
 struct sbs_refl_uniformblock {
@@ -301,7 +300,7 @@ bool supershader::generate_sbs(const std::vector<spirvcross_t>& spirvcrossvec, c
         }
         size_t num_textures = spirvcrossvec[i].textures.size();
         size_t num_samplers = spirvcrossvec[i].samplers.size();
-        size_t num_texture_samplers = spirvcrossvec[i].texture_samplers.size();
+        size_t num_texture_sampler_pairs = spirvcrossvec[i].texture_sampler_pairs.size();
         size_t num_sb = spirvcrossvec[i].storage_buffers.size();
 
         const uint32_t code_size = spirvcrossvec[i].source.size();
@@ -311,7 +310,7 @@ bool supershader::generate_sbs(const std::vector<spirvcross_t>& spirvcrossvec, c
             sizeof(sbs_refl_input) * num_inputs +
             sizeof(sbs_refl_texture) * num_textures +
             sizeof(sbs_refl_sampler) * num_samplers +
-            sizeof(sbs_refl_texture_sampler) * num_texture_samplers +
+            sizeof(sbs_refl_texture_sampler_pair) * num_texture_sampler_pairs +
             sizeof(sbs_refl_uniformblock) * num_ubs +
             sizeof(sbs_refl_uniform) * num_us +
             sizeof(sbs_refl_storagebuffer) * num_sb;
@@ -343,7 +342,7 @@ bool supershader::generate_sbs(const std::vector<spirvcross_t>& spirvcrossvec, c
         refl.num_inputs = num_inputs;
         refl.num_textures = num_textures;
         refl.num_samplers = num_samplers;
-        refl.num_texture_samplers = num_texture_samplers;
+        refl.num_texture_sampler_pairs = num_texture_sampler_pairs;
         refl.num_uniform_blocks = num_ubs;
         refl.num_uniforms = num_us;
         refl.num_storage_buffers = num_sb;
@@ -382,14 +381,13 @@ bool supershader::generate_sbs(const std::vector<spirvcross_t>& spirvcrossvec, c
             ofs.write((char *) &refl_sampler, sizeof(sbs_refl_sampler));
         }
 
-        for (int a = 0; a < num_texture_samplers; a++){
-            sbs_refl_texture_sampler refl_texture_sampler;
-            copy_name(refl_texture_sampler.name, spirvcrossvec[i].texture_samplers[a].name.c_str());
-            copy_name(refl_texture_sampler.texture_name, spirvcrossvec[i].texture_samplers[a].texture_name.c_str());
-            copy_name(refl_texture_sampler.sampler_name, spirvcrossvec[i].texture_samplers[a].sampler_name.c_str());
-            refl_texture_sampler.binding = spirvcrossvec[i].samplers[a].binding;
+        for (int a = 0; a < num_texture_sampler_pairs; a++){
+            sbs_refl_texture_sampler_pair refl_texture_sampler_pair;
+            copy_name(refl_texture_sampler_pair.name, spirvcrossvec[i].texture_sampler_pairs[a].name.c_str());
+            copy_name(refl_texture_sampler_pair.texture_name, spirvcrossvec[i].texture_sampler_pairs[a].texture_name.c_str());
+            copy_name(refl_texture_sampler_pair.sampler_name, spirvcrossvec[i].texture_sampler_pairs[a].sampler_name.c_str());
 
-            ofs.write((char *) &refl_texture_sampler, sizeof(sbs_refl_texture_sampler));
+            ofs.write((char *) &refl_texture_sampler_pair, sizeof(sbs_refl_texture_sampler_pair));
         }
 
         for (int a = 0; a < num_ubs; a++){
