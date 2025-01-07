@@ -349,11 +349,25 @@ run --enhanced-msgs -V --target-env vulkan1.2 --amb --aml spv.textureError.frag 
 diff -b $BASEDIR/spv.textureError.frag.out "$TARGETDIR/spv.textureError.frag.out" || HASERROR=1
 
 #
+# Test error column
+#
+echo "Testing error-column"
+run --error-column -C -V error-column.vert > "$TARGETDIR/error-column.vert.out"
+diff -b $BASEDIR/error-column.vert.out $TARGETDIR/error-column.vert.out || HASERROR=1
+
+#
 # Test UTF8BOM
 #
 echo "Testing UTF8BOM"
 run --glsl-version 410 -V -S vert UTF8BOM.vert > $TARGETDIR/UTF8BOM.vert.out
 diff -b $BASEDIR/UTF8BOM.vert.out $TARGETDIR/UTF8BOM.vert.out || HASERROR=1
+
+#
+# Test LTO
+#
+echo "Testing link-time optimization"
+run -V -H --amb --aml -l --lto link.crossStageOptimization.vert link.crossStageOptimization.frag > "$TARGETDIR/link.crossStageOptimization.out"
+diff -b $BASEDIR/link.crossStageOptimization.out "$TARGETDIR/link.crossStageOptimization.out" || HASERROR=1
 
 #
 # Final checking

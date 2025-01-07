@@ -516,6 +516,26 @@ public:
 		// transformed.
 		bool agx_manual_cube_grad_fixup = false;
 
+		// Metal will discard fragments with side effects under certain circumstances prematurely.
+		// Example: CTS test dEQP-VK.fragment_operations.early_fragment.discard_no_early_fragment_tests_depth
+		// Test will render a full screen quad with varying depth [0,1] for each fragment.
+		// Each fragment will do an operation with side effects, modify the depth value and
+		// discard the fragment. The test expects the fragment to be run due to:
+		// https://registry.khronos.org/vulkan/specs/1.0-extensions/html/vkspec.html#fragops-shader-depthreplacement
+		// which states that the fragment shader must be run due to replacing the depth in shader.
+		// However, Metal may prematurely discards fragments without executing them
+		// (I believe this to be due to a greedy optimization on their end) making the test fail.
+		// This option enforces fragment execution for such cases where the fragment has operations
+		// with side effects. Provided as an option hoping Metal will fix this issue in the future.
+		bool force_fragment_with_side_effects_execution = false;
+
+		// If set, adds a depth pass through statement to circumvent the following issue:
+		// When the same depth/stencil is used as input and depth/stencil attachment, we need to
+		// force Metal to perform the depth/stencil write after fragment execution. Otherwise,
+		// Metal will write to the depth attachment before fragment execution. This happens
+		// if the fragment does not modify the depth value.
+		bool input_attachment_is_ds_attachment = false;
+
 		bool is_ios() const
 		{
 			return platform == iOS;
@@ -772,6 +792,8 @@ protected:
 		SPVFuncImplTextureSwizzle,
 		SPVFuncImplGatherSwizzle,
 		SPVFuncImplGatherCompareSwizzle,
+		SPVFuncImplGatherConstOffsets,
+		SPVFuncImplGatherCompareConstOffsets,
 		SPVFuncImplSubgroupBroadcast,
 		SPVFuncImplSubgroupBroadcastFirst,
 		SPVFuncImplSubgroupBallot,
@@ -847,7 +869,7 @@ protected:
 	void emit_block_hints(const SPIRBlock &block) override;
 
 	// Allow Metal to use the array<T> template to make arrays a value type
-	std::string type_to_array_glsl(const SPIRType &type) override;
+	std::string type_to_array_glsl(const SPIRType &type, uint32_t variable_id) override;
 	std::string constant_op_expression(const SPIRConstantOp &cop) override;
 
 	bool variable_decl_is_remapped_storage(const SPIRVariable &variable, spv::StorageClass storage) const override;
@@ -1006,6 +1028,8 @@ protected:
 
 	uint32_t get_physical_tess_level_array_size(spv::BuiltIn builtin) const;
 
+	uint32_t get_physical_type_stride(const SPIRType &type) const override;
+
 	// MSL packing rules. These compute the effective packing rules as observed by the MSL compiler in the MSL output.
 	// These values can change depending on various extended decorations which control packing rules.
 	// We need to make these rules match up with SPIR-V declared rules.
@@ -1079,6 +1103,7 @@ protected:
 	uint32_t builtin_stage_input_size_id = 0;
 	uint32_t builtin_local_invocation_index_id = 0;
 	uint32_t builtin_workgroup_size_id = 0;
+	uint32_t builtin_frag_depth_id = 0;
 	uint32_t swizzle_buffer_id = 0;
 	uint32_t buffer_size_buffer_id = 0;
 	uint32_t view_mask_buffer_id = 0;
@@ -1175,6 +1200,7 @@ protected:
 	bool needs_subgroup_size = false;
 	bool needs_sample_id = false;
 	bool needs_helper_invocation = false;
+	bool writes_to_depth = false;
 	std::string qual_pos_var_name;
 	std::string stage_in_var_name = "in";
 	std::string stage_out_var_name = "out";
@@ -1223,7 +1249,7 @@ protected:
 
 	void analyze_argument_buffers();
 	bool descriptor_set_is_argument_buffer(uint32_t desc_set) const;
-	MSLResourceBinding &get_argument_buffer_resource(uint32_t desc_set, uint32_t arg_idx);
+	const MSLResourceBinding &get_argument_buffer_resource(uint32_t desc_set, uint32_t arg_idx) const;
 	void add_argument_buffer_padding_buffer_type(SPIRType &struct_type, uint32_t &mbr_idx, uint32_t &arg_buff_index, MSLResourceBinding &rez_bind);
 	void add_argument_buffer_padding_image_type(SPIRType &struct_type, uint32_t &mbr_idx, uint32_t &arg_buff_index, MSLResourceBinding &rez_bind);
 	void add_argument_buffer_padding_sampler_type(SPIRType &struct_type, uint32_t &mbr_idx, uint32_t &arg_buff_index, MSLResourceBinding &rez_bind);

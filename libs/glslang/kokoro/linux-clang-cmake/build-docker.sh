@@ -39,9 +39,10 @@ set -e # Fail on any error.
 
 set -x # Display commands being run.
 
-using cmake-3.17.2
+using cmake-3.31.2
 using clang-10.0.0
 using ninja-1.10.0
+using python-3.12
 
 echo "Building..."
 mkdir /build && cd /build

@@ -6,6 +6,12 @@
 
 #include <iostream>
 #include <fstream>
+#include <set>
+#include <list>
+
+#include "glslang/Public/ShaderLang.h"
+#include "glslang/Public/ResourceLimits.h"
+#include "glslang/MachineIndependent/localintermediate.h"
 
 #include "SPIRV/GlslangToSpv.h"
 #include "SPIRV/SpvTools.h"
@@ -185,7 +191,7 @@ void OptimizerMesssageConsumer(spv_message_level_t level, const char *source,
 void spirv_optimize(const glslang::TIntermediate& intermediate, std::vector<unsigned int>& spirv,
                          spv::SpvBuildLogger* logger, const glslang::SpvOptions* options)
 {
-    spv_target_env target_env = MapToSpirvToolsEnv(intermediate.getSpv(), logger);
+    spv_target_env target_env = glslang::MapToSpirvToolsEnv(intermediate.getSpv(), logger);
 
     spvtools::Optimizer optimizer(target_env);
     optimizer.SetMessageConsumer(OptimizerMesssageConsumer);
@@ -228,9 +234,20 @@ void spirv_optimize(const glslang::TIntermediate& intermediate, std::vector<unsi
     optimizer.RegisterPass(spvtools::CreateCFGCleanupPass());
 
     spvtools::OptimizerOptions spvOptOptions;
-    optimizer.SetTargetEnv(MapToSpirvToolsEnv(intermediate.getSpv(), logger));
+    if (options->optimizerAllowExpandedIDBound)
+        spvOptOptions.set_max_id_bound(0x3FFFFFFF);
+    optimizer.SetTargetEnv(glslang::MapToSpirvToolsEnv(intermediate.getSpv(), logger));
     spvOptOptions.set_run_validator(false); // The validator may run as a separate step later on
     optimizer.Run(spirv.data(), spirv.size(), &spirv, spvOptOptions);
+
+    if (options->optimizerAllowExpandedIDBound) {
+        if (spirv.size() > 3 && spirv[3] > kDefaultMaxIdBound) {
+            spvtools::Optimizer optimizer2(target_env);
+            optimizer2.SetMessageConsumer(OptimizerMesssageConsumer);
+            optimizer2.RegisterPass(spvtools::CreateCompactIdsPass());
+            optimizer2.Run(spirv.data(), spirv.size(), &spirv, spvOptOptions);
+        }
+    }
 }
 //
 // End modified part of SpvTools.cpp/SpirvToolsTransform
