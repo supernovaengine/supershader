@@ -208,15 +208,18 @@ static bool validate_uniform_blocks_and_separate_image_samplers(const spirv_cros
 //
 // From https://github.com/floooh/sokol-tools
 //
-uint32_t base_slot(const supershader::lang_type_t lang, const stage_type_t stage_type, BindingType type){
+uint32_t base_slot(const supershader::lang_type_t* lang, const stage_type_t* stage_type, BindingType type){
     int res = 0;
+    if (!lang || !stage_type)
+        return res;
+
     switch (type) {
         case BindingType::UNIFORM_BLOCK:
             // TODO: wgsl
             break;
         case BindingType::IMAGE_SAMPLER:
-            if (lang == LANG_GLSL) {
-                res = (stage_type == STAGE_VERTEX) ? 0 : MaxImageSamplers;
+            if (*lang == LANG_GLSL) {
+                res = (*stage_type == STAGE_VERTEX) ? 0 : MaxImageSamplers;
             }
             break;
         case BindingType::IMAGE:
@@ -226,12 +229,12 @@ uint32_t base_slot(const supershader::lang_type_t lang, const stage_type_t stage
             // TODO: wgsl
             break;
         case BindingType::STORAGE_BUFFER:
-            if (lang == LANG_MSL) {
+            if (*lang == LANG_MSL) {
                 res = MaxUniformBlocks;
-            } else if (lang == LANG_HLSL) {
+            } else if (*lang == LANG_HLSL) {
                 res = MaxImages;
-            } else if (lang == LANG_GLSL) {
-                if (stage_type == STAGE_FRAGMENT) {
+            } else if (*lang == LANG_GLSL) {
+                if (*stage_type == STAGE_FRAGMENT) {
                     res = MaxStorageBuffers;
                 }
             } // TODO: wgsl
@@ -240,7 +243,7 @@ uint32_t base_slot(const supershader::lang_type_t lang, const stage_type_t stage
     return res;
 }
 
-static void fix_bind_slots(spirv_cross::Compiler* compiler, const supershader::lang_type_t lang, const stage_type_t stage_type) {
+static void fix_bind_slots(spirv_cross::Compiler* compiler, const stage_type_t* stage_type, const supershader::lang_type_t* lang) {
     spirv_cross::ShaderResources shader_resources = compiler->get_shader_resources();
 
     // uniform buffers
@@ -444,7 +447,7 @@ static bool parse_stage_reflection(spirvcross_t& spirvcross, const spirv_cross::
     return true;
 }
 
-/*
+
 //
 // From https://github.com/floooh/sokol-tools
 //
@@ -469,7 +472,7 @@ static bool parse_reflection(const std::vector<uint32_t>& bytecode, spirvcross_t
 
     return parse_stage_reflection(spirvcross, &compiler);
 }
-*/
+
 
 bool validate_inputs_and_outputs(std::vector<spirvcross_t>& spirvcrossvec, const std::vector<input_t>& inputs){
     int vsIndex = -1;
@@ -592,7 +595,7 @@ bool supershader::compile_to_lang(std::vector<spirvcross_t>& spirvcrossvec, cons
             }
         }
 
-        fix_bind_slots(compiler.get(), args.lang, inputs[i].stage_type);
+        fix_bind_slots(compiler.get(), &inputs[i].stage_type, &args.lang);
 
         spirv_cross::ShaderResources res = compiler->get_shader_resources();
         if (!validate_uniform_blocks_and_separate_image_samplers(compiler.get(), res, inputs[i]))
@@ -602,16 +605,13 @@ bool supershader::compile_to_lang(std::vector<spirvcross_t>& spirvcrossvec, cons
         // TODO: Not for Vulkan
         if (args.lang == LANG_GLSL) {
             flatten_uniform_blocks(compiler.get());
+            to_combined_image_samplers(compiler.get());
         }
-        to_combined_image_samplers(compiler.get());
         
         spirvcrossvec[i].source = compiler->compile();
 
-        if (!parse_stage_reflection(spirvcrossvec[i], compiler.get()))
+        if (!parse_reflection(spirvvec[i].bytecode, spirvcrossvec[i]))
             return false;
-
-        //if (!parse_reflection(spirvvec[i].bytecode, spirvcrossvec[i]))
-        //    return false;
     }
 
     if (!validate_inputs_and_outputs(spirvcrossvec, inputs))
