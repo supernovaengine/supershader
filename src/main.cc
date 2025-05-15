@@ -8,6 +8,8 @@
 
 using namespace supershader;
 
+#ifndef SUPERSHADER_LIBRARY
+
 int main(int argc, const char **argv){
 
 	args_t args = parse_args(argc, argv);
@@ -50,3 +52,5 @@ int main(int argc, const char **argv){
 
 	return 0;
 }
+
+#endif //SUPERSHADER_LIBRARY
