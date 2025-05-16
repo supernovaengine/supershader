@@ -9,8 +9,6 @@ function(remove_compile_options DEST_VAR COMPILER_FLAGS FLAGS)
         set(${DEST_VAR} ${COMPILER_FLAGS} PARENT_SCOPE)
 endfunction()
 
-option(STATIC_LINK "Statically link with system standard libraries" ON)
-
 option(ENABLE_SPVREMAPPER "Enables building of SPVRemapper" ON)
 option(ENABLE_AMD_EXTENSIONS "Enables support of AMD-specific extensions" ON)
 option(ENABLE_GLSLANG_BINARIES "Builds glslangValidator and spirv-remap" ON)
@@ -45,9 +43,11 @@ if (MSVC)
 	remove_compile_options(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" "/GR")
 	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} /wd4530")
 	
-	if (STATIC_LINK)
+    if(SUPERNOVA_SHARED)
+        set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+    else()
         set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-	endif()
+    endif()
 endif()
 
 include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/libs/argparse")
