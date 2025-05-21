@@ -23,20 +23,32 @@ static bool load_string_from_file(std::string& buffer, std::string path){
     return true;
 }
 
-bool supershader::load_input(std::vector<input_t>& inputs, const args_t& args){
+bool supershader::load_input(std::vector<input_t>& inputs, const args_t& args, bool fromBuffer){
 
     std::string buffer;
 
     if (!args.vert_file.empty()){
-        if (!load_string_from_file(buffer, args.vert_file))
-            return false;
+        if (fromBuffer){
+            if (args.fileBuffers.find(args.vert_file) == args.fileBuffers.end())
+                return false;
+            buffer = args.fileBuffers.at(args.vert_file);
+        }else{
+            if (!load_string_from_file(buffer, args.vert_file))
+                return false;
+        }
 
         inputs.push_back({STAGE_VERTEX, args.vert_file, buffer});
     }
     
     if (!args.frag_file.empty()){
-        if (!load_string_from_file(buffer, args.frag_file))
-            return false;
+        if (fromBuffer){
+            if (args.fileBuffers.find(args.frag_file) == args.fileBuffers.end())
+                return false;
+            buffer = args.fileBuffers.at(args.frag_file);
+        }else{
+            if (!load_string_from_file(buffer, args.frag_file))
+                return false;
+        }
 
         inputs.push_back({STAGE_FRAGMENT, args.frag_file, buffer});
     }

@@ -7,6 +7,7 @@
 
 #include <string>
 #include <vector>
+#include <unordered_map>
 #include <cstdint>
 
 namespace supershader{
@@ -59,6 +60,8 @@ namespace supershader{
 
     struct args_t{
         bool isValid;
+
+        std::unordered_map<std::string, std::string> fileBuffers;
         
         std::string vert_file;
         std::string frag_file;
@@ -308,7 +311,7 @@ namespace supershader{
 
     args_t parse_args(int argc, const char **argv);
 
-    bool load_input(std::vector<input_t>& inputs, const args_t& args);
+    bool load_input(std::vector<input_t>& inputs, const args_t& args, bool fromBuffer = false);
 
     bool compile_to_spirv(std::vector<spirv_t>& spirvvec, const std::vector<input_t>& inputs, const args_t& args);
 
