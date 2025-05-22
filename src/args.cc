@@ -79,8 +79,10 @@ static std::string get_filename(const char* path){
     return filename;
 }
 
-args_t supershader::parse_args(int argc, const char **argv){
+args_t supershader::initialize_args(){
     args_t args;
+    args.useBuffers = false;
+    args.fileBuffers.clear();
     args.vert_file = "";
     args.frag_file = "";
     args.lang = LANG_GLSL;
@@ -94,6 +96,12 @@ args_t supershader::parse_args(int argc, const char **argv){
     args.defines.clear();
     args.list_includes = false;
     args.optimization = true;
+
+    return args;
+}
+
+args_t supershader::parse_args(int argc, const char **argv){
+    args_t args = initialize_args();
 
     const char *vert_file = NULL;
     const char *frag_file = NULL;

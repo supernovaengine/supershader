@@ -8,6 +8,7 @@
 #include <fstream>
 #include <set>
 #include <list>
+#include <memory>
 
 #include "glslang/Public/ShaderLang.h"
 #include "glslang/Public/ResourceLimits.h"
@@ -24,6 +25,8 @@
 
 using namespace supershader;
 
+
+// TODO: can be replaced with glslang/MachineIndependent/DirStackFileIncluder.h
 class FileIncluder : public glslang::TShader::Includer {
 private:
     std::vector<std::string> localDirectories;
@@ -82,6 +85,54 @@ public:
     void addLocalDirectory(const std::string& dir) {
         localDirectories.push_back(dir);
     }
+
+    virtual std::set<std::string> getIncludedFiles() {
+        return includedFiles;
+    }
+};
+
+class BufferIncluder : public glslang::TShader::Includer {
+private:
+    const std::unordered_map<std::string, std::string>& fileBuffers;
+    std::set<std::string> includedFiles;
+
+    IncludeResult* newIncludeResult(const std::string& path, const std::string& content) const {
+        char* data = new char[content.size()];
+        memcpy(data, content.data(), content.size());
+        return new IncludeResult(path, data, content.size(), data);
+    }
+
+public:
+    BufferIncluder(const std::unordered_map<std::string, std::string>& fileBuffers_)
+        : fileBuffers(fileBuffers_) {}
+
+    virtual IncludeResult* includeLocal(const char* headerName, 
+                                        const char* includerName, 
+                                        size_t /*inclusionDepth*/) override {
+        std::string path(headerName);
+        auto it = fileBuffers.find(path);
+        if (it != fileBuffers.end()) {
+            includedFiles.insert(path);
+            return newIncludeResult(path, it->second);
+        }
+        return nullptr;
+    }
+
+    // Not using search for a <system> path.
+    virtual IncludeResult* includeSystem(const char* headerName,
+                                         const char* /*includerName*/,
+                                         size_t /*inclusionDepth*/) override {
+        return nullptr;
+    }
+
+    virtual void releaseInclude(IncludeResult* result) override {
+        if (result != nullptr) {
+            delete [] static_cast<char*>(result->userData);
+            delete result;
+        }
+    }
+
+    virtual ~BufferIncluder() override { }
 
     virtual std::set<std::string> getIncludedFiles() {
         return includedFiles;
@@ -379,10 +430,14 @@ bool supershader::compile_to_spirv(std::vector<spirv_t>& spirvvec, const std::ve
 
     std::list<glslang::TShader*> shaders;
 
-    FileIncluder includer;
-
-    if (!args.include_dir.empty())
-        includer.addLocalDirectory(args.include_dir);
+    std::unique_ptr<glslang::TShader::Includer> includer;
+    if (args.useBuffers) {
+        includer = std::make_unique<BufferIncluder>(args.fileBuffers);
+    } else {
+        includer = std::make_unique<FileIncluder>();
+        if (!args.include_dir.empty())
+            static_cast<FileIncluder*>(includer.get())->addLocalDirectory(args.include_dir);
+    }
 
     glslang::TProgram* program = new glslang::TProgram;
 
@@ -439,7 +494,7 @@ bool supershader::compile_to_spirv(std::vector<spirv_t>& spirvvec, const std::ve
 
         shaders.push_back(shader);
 
-        bool parse_success = shader->parse(&DefaultTBuiltInResource, default_version, false, messages, includer);
+        bool parse_success = shader->parse(&DefaultTBuiltInResource, default_version, false, messages, *includer);
         output_error(shader->getInfoLog(), ("File: " + inputs[i].filename).c_str());
         output_error(shader->getInfoDebugLog(), ("File: " + inputs[i].filename).c_str());
         if (!parse_success) {
@@ -489,7 +544,9 @@ bool supershader::compile_to_spirv(std::vector<spirv_t>& spirvvec, const std::ve
     }
 
     if (args.list_includes)
-        output_included_files(includer.getIncludedFiles());
+        output_included_files(args.useBuffers 
+            ? static_cast<BufferIncluder*>(includer.get())->getIncludedFiles()
+            : static_cast<FileIncluder*>(includer.get())->getIncludedFiles());
 
     cleanup_program_shaders(program, shaders);
     glslang::FinalizeProcess();

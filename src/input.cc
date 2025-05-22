@@ -23,12 +23,12 @@ static bool load_string_from_file(std::string& buffer, std::string path){
     return true;
 }
 
-bool supershader::load_input(std::vector<input_t>& inputs, const args_t& args, bool fromBuffer){
+bool supershader::load_input(std::vector<input_t>& inputs, const args_t& args){
 
     std::string buffer;
 
     if (!args.vert_file.empty()){
-        if (fromBuffer){
+        if (args.useBuffers){
             if (args.fileBuffers.find(args.vert_file) == args.fileBuffers.end())
                 return false;
             buffer = args.fileBuffers.at(args.vert_file);
@@ -41,7 +41,7 @@ bool supershader::load_input(std::vector<input_t>& inputs, const args_t& args, b
     }
     
     if (!args.frag_file.empty()){
-        if (fromBuffer){
+        if (args.useBuffers){
             if (args.fileBuffers.find(args.frag_file) == args.fileBuffers.end())
                 return false;
             buffer = args.fileBuffers.at(args.frag_file);
